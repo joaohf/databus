@@ -35,7 +35,10 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
+import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
+import org.apache.log4j.PropertyConfigurator;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -98,6 +101,7 @@ public class DataGenerator {
 
   public static Options loadOptions() {
     Options opt = new Options();
+    opt.addOption("l", "log_props", true, "Log4j properties to use");
     opt.addOption("s", "schemaLocation", true, "location of the schema");
     opt.addOption("minStringLength", true,	"Minimum length of string to be generated");
     opt.addOption("maxStringLength", true,	"Maximum length of string to be generated");
@@ -131,6 +135,23 @@ public class DataGenerator {
       LOG.error("Invalid option");
       printHelp(opts);
       return;
+    }
+
+    if (cmd.hasOption('l'))
+    {
+      String log4jPropFile = cmd.getOptionValue('l');
+      PropertyConfigurator.configure(log4jPropFile);
+      LOG.info("Using custom logging settings from file " + log4jPropFile);
+    }
+    else
+    {
+      PatternLayout defaultLayout = new PatternLayout("%d{ISO8601} +%r [%t] (%p) {%c{1}} %m%n");
+      ConsoleAppender defaultAppender = new ConsoleAppender(defaultLayout);
+
+      Logger.getRootLogger().removeAllAppenders();
+      Logger.getRootLogger().addAppender(defaultAppender);
+
+      LOG.info("Using default logging settings");
     }
 
     // check for necessary options
