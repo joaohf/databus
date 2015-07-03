@@ -22,14 +22,22 @@ package com.linkedin.databus.eventgenerator;
 /*
  * The interface to generate random values.
  */
-public interface RandomDataGenerator extends DefaultDataGenerator {
-//  public int getNextInt();
-//  public int getNextInt(int min, int max);
-//  public String getNextString();
-//  public String getNextString(int min, int max);
-//  public double getNextDouble();
-//  public float getNextFloat();
-//  public long getNextLong();
-//  public boolean getNextBoolean();
-//  public  byte[] getNextBytes(int maxBytesLength);
+public interface DefaultDataGenerator {
+  public void setBoolean(boolean value);
+  public void setBytes(byte[] value);
+  public void setInt(int value);
+  public void setLong(long value);
+  public void setDouble(double value);
+  public void setFloat(float value);
+  public void setString(String value);
+
+  public int getNextInt();
+  public int getNextInt(int min, int max);
+  public String getNextString();
+  public String getNextString(int min, int max);
+  public double getNextDouble();
+  public float getNextFloat();
+  public long getNextLong();
+  public boolean getNextBoolean();
+  public  byte[] getNextBytes(int maxBytesLength);
 }

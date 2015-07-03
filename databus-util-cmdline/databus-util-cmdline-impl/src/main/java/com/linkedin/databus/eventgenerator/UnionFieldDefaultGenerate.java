@@ -19,53 +19,44 @@ package com.linkedin.databus.eventgenerator;
 */
 
 
+import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.generic.GenericRecord;
 
-public class StringFieldGenerate extends SchemaFiller {
+import java.util.List;
 
-  private static int minStringLength = 0;
-  private static int maxStringLength = 1024;
+public class UnionFieldDefaultGenerate extends SchemaFiller {
 
-  public static int getMaxStringLength()
-  {
-    return maxStringLength;
-  }
+  String value = null;
 
-  public static int getMinStringLength()
-  {
-    return minStringLength;
-  }
-
-
-  public StringFieldGenerate(Field field)
-  {
-    super(field);
-    //TODO read min and max length from config and set and use with generator
-  }
-
-  public StringFieldGenerate(Field field, String value)
-  {
+  public UnionFieldDefaultGenerate(Field field, String value) {
     super(field, new DefaultGenerator());
-
-    this.dataGenerator.setString(value);
+    this.value = value;
   }
 
   @Override
-  public void writeToRecord(GenericRecord genericRecord)
+  public void writeToRecord(GenericRecord record) throws UnknownTypeException
   {
-    genericRecord.put(field.name(), generateString());
+    getUnionFieldFiller().writeToRecord(record);
   }
 
   @Override
   public Object generateRandomObject() throws UnknownTypeException
   {
-    return generateString();
+    return getUnionFieldFiller().generateRandomObject();
   }
-
-  public String generateString()
+  
+  public SchemaFiller getUnionFieldFiller() throws UnknownTypeException
   {
-    return dataGenerator.getNextString(minStringLength, maxStringLength);
+    List<Schema> schemas = field.schema().getTypes();
+    Schema schema = null;
+    for (Schema s: schemas)
+    {
+    	schema = s;  
+    	if (schema.getType()!=Schema.Type.NULL) break;
+    }
+    Field tempField = new Field(field.name(), schema, null, null);
+    return SchemaFiller.createCsvField(tempField, value);
   }
 
 }

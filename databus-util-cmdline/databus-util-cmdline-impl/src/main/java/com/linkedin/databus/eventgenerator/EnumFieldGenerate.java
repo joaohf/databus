@@ -48,7 +48,7 @@ public class EnumFieldGenerate extends SchemaFiller
 
   public String generateEnum()
   {
-     return enumStrings.get(randGenerator.getNextInt()%enumStrings.size());
+     return enumStrings.get(dataGenerator.getNextInt()%enumStrings.size());
   }
 
 }

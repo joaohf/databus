@@ -28,6 +28,13 @@ public class FloatFieldGenerate extends SchemaFiller {
     super(field);
   }
 
+  public FloatFieldGenerate(Field field, float value)
+  {
+    super(field, new DefaultGenerator());
+
+    this.dataGenerator.setFloat(value);
+  }
+
   @Override
   public void writeToRecord(GenericRecord record)
   {
@@ -42,6 +49,6 @@ public class FloatFieldGenerate extends SchemaFiller {
   
   public Float generateFloat()
   {
-    return randGenerator.getNextFloat();
+    return dataGenerator.getNextFloat();
   }
 }

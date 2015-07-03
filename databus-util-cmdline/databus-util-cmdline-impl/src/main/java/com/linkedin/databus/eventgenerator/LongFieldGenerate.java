@@ -27,7 +27,14 @@ public class LongFieldGenerate extends SchemaFiller {
   public LongFieldGenerate(Field field) {
     super(field);
   }
-  
+
+  public LongFieldGenerate(Field field, long value)
+  {
+    super(field, new DefaultGenerator());
+
+    this.dataGenerator.setLong(value);
+  }
+
   @Override
   public void writeToRecord(GenericRecord record)
   {
@@ -42,6 +49,6 @@ public class LongFieldGenerate extends SchemaFiller {
   
   public Long generateLong()
   {
-    return randGenerator.getNextLong();
+    return dataGenerator.getNextLong();
   }
 }

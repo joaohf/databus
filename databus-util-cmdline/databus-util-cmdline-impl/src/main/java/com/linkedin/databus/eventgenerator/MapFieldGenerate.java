@@ -60,10 +60,10 @@ public class MapFieldGenerate extends SchemaFiller
 
   public Map<Utf8,Object> generateMap() throws UnknownTypeException
   {
-    Map<Utf8,Object> map = new HashMap<Utf8,Object>(randGenerator.getNextInt()%maxNumberOfMapFields);
+    Map<Utf8,Object> map = new HashMap<Utf8,Object>(dataGenerator.getNextInt()%maxNumberOfMapFields);
     Field fakeField = new Field(field.name(), field.schema().getValueType(), null, null);
 
-    int count = randGenerator.getNextInt()%getMaxNumberOfMapFields();
+    int count = dataGenerator.getNextInt()%getMaxNumberOfMapFields();
     for(int i =0 ; i < count ; i++ )
     {
       SchemaFiller filler = SchemaFiller.createRandomField(fakeField); // create a new filler each time to emulate null-able fields

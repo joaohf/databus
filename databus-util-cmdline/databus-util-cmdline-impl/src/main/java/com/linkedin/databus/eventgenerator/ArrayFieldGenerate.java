@@ -51,7 +51,7 @@ public class ArrayFieldGenerate extends SchemaFiller {
     GenericData.Array<Object> array = new GenericData.Array<Object>(10, field.schema());
     
 
-    for(int i = 0; i < randGenerator.getNextInt()%maxArrayLength; i++)
+    for(int i = 0; i < dataGenerator.getNextInt()%maxArrayLength; i++)
     {
       /* --> uglier way to fetch the random object
       Field fakeField = new Field(field.name()+"fake", innerElementSchema, null, null);

@@ -52,6 +52,13 @@ public class IntegerFieldGenerate extends SchemaFiller {
     super(field);
   }
 
+  public IntegerFieldGenerate(Field field, Integer value)
+  {
+    super(field, new DefaultGenerator());
+
+    this.dataGenerator.setInt(value);
+  }
+
   @Override
   public void writeToRecord(GenericRecord genericRecord)
   {
@@ -66,7 +73,7 @@ public class IntegerFieldGenerate extends SchemaFiller {
 
   public Integer generateInteger()
   {
-    return randGenerator.getNextInt(minIntLength, maxIntLength);
+    return dataGenerator.getNextInt(minIntLength, maxIntLength);
   }
 
 }

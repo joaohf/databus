@@ -51,6 +51,13 @@ public class DoubleFieldGenerate extends SchemaFiller {
     super(field);
   }
 
+  public DoubleFieldGenerate(Field field, double value)
+  {
+    super(field, new DefaultGenerator());
+
+    this.dataGenerator.setDouble(value);
+  }
+
   @Override
   public void writeToRecord(GenericRecord record)
   {
@@ -65,6 +72,6 @@ public class DoubleFieldGenerate extends SchemaFiller {
   
   public Double generateDouble()
   {
-    return randGenerator.getNextDouble();
+    return dataGenerator.getNextDouble();
   }
 }

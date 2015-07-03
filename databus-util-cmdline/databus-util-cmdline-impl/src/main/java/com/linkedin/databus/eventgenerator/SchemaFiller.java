@@ -30,7 +30,7 @@ import org.apache.avro.generic.GenericRecord;
 public abstract class SchemaFiller {
 
   protected Field field;
-  protected RandomDataGenerator randGenerator;
+  protected DefaultDataGenerator dataGenerator;
 
   /*
    * Constructor to create an schema filler instance of the given field.
@@ -39,7 +39,8 @@ public abstract class SchemaFiller {
   public SchemaFiller(Field field)
   {
     this.field = field;
-    this.randGenerator = new DefaultRandomGenerator();
+    this.dataGenerator = new DefaultRandomGenerator();
+
   }
   
   /*
@@ -47,10 +48,10 @@ public abstract class SchemaFiller {
    * @param field The type of field to create an filler for.
    * @param randGen The random generator to be used to generate this field (Implement the interface RandomDataGenerator to use your own).
    */
-  public SchemaFiller(Field field, RandomDataGenerator randGenerator)
+  public SchemaFiller(Field field, DefaultDataGenerator defaultGenerator)
   {
     this.field = field;
-    this.randGenerator =  randGenerator;
+    this.dataGenerator = defaultGenerator;
   }
 
   /*
@@ -135,43 +136,48 @@ public abstract class SchemaFiller {
     Schema.Type type = field.schema().getType();
     if(type == Schema.Type.ARRAY)
     {
-      return new ArrayFieldGenerate(field);
+      throw new UnknownTypeException();
     }
     else if(type == Schema.Type.BOOLEAN)
     {
-      return new BooleanFieldGenerate(field);
+      boolean booleanValue = Boolean.valueOf(csvField);
+      return new BooleanFieldGenerate(field, booleanValue);
     }
     else if(type == Schema.Type.BYTES)
     {
-      return new BytesFieldGenerate(field);
+      throw new UnknownTypeException();
     }
     else if(type == Schema.Type.DOUBLE)
     {
-      return new DoubleFieldGenerate(field);
+      double doubleValue = Double.valueOf(csvField);
+      return new DoubleFieldGenerate(field, doubleValue);
     }
     else if(type == Schema.Type.ENUM)
     {
-      return new EnumFieldGenerate(field);
+      throw new UnknownTypeException();
     }
     else if(type == Schema.Type.FIXED)
     {
-      return new FixedLengthFieldGenerate(field);
+      throw new UnknownTypeException();
     }
     else if(type == Schema.Type.FLOAT)
     {
-      return new FloatFieldGenerate(field);
+      float floatValue = Float.valueOf(csvField);
+      return new FloatFieldGenerate(field, floatValue);
     }
     else if(type == Schema.Type.INT)
     {
-      return new IntegerFieldGenerate(field);
+      Integer integerValue = Integer.valueOf(csvField);
+      return new IntegerFieldGenerate(field, integerValue);
     }
     else if(type == Schema.Type.LONG)
     {
-      return new LongFieldGenerate(field);
+      long longValue = Long.valueOf(csvField);
+      return new LongFieldGenerate(field, longValue);
     }
     else if(type == Schema.Type.MAP)
     {
-      return new MapFieldGenerate(field);
+      throw new UnknownTypeException();
     }
     else if(type == Schema.Type.NULL)
     {
@@ -179,15 +185,15 @@ public abstract class SchemaFiller {
     }
     else if(type == Schema.Type.RECORD)
     {
-      return new RecordFieldGenerate(field);
+      throw new UnknownTypeException();
     }
     else if(type == Schema.Type.STRING)
     {
-      return new StringFieldGenerate(field);
+      return new StringFieldGenerate(field, csvField);
     }
     else if(type == Schema.Type.UNION)
     {
-      return new UnionFieldGenerate(field);
+      return new UnionFieldDefaultGenerate(field, csvField);
     }
     else
     {

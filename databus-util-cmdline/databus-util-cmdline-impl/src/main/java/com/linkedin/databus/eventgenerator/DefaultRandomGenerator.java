@@ -31,6 +31,41 @@ public class DefaultRandomGenerator implements RandomDataGenerator
     rand = new Random();
   }
 
+  @Override
+  public void setBoolean(boolean value) {
+
+  }
+
+  @Override
+  public void setBytes(byte[] value) {
+
+  }
+
+  @Override
+  public void setInt(int value) {
+
+  }
+
+  @Override
+  public void setLong(long value) {
+
+  }
+
+  @Override
+  public void setDouble(double value) {
+
+  }
+
+  @Override
+  public void setFloat(float value) {
+
+  }
+
+  @Override
+  public void setString(String value) {
+
+  }
+
   public int getNextInt()
   {
     //return getNextInt(IntegerFieldGenerate.getMinIntLength(), IntegerFieldGenerate.getMaxIntLength());

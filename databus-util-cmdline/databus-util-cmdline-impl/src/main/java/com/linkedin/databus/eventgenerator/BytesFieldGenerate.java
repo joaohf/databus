@@ -40,6 +40,14 @@ public class BytesFieldGenerate extends SchemaFiller{
     super(field);
   }
 
+  public BytesFieldGenerate(Field field, byte[] defaultValue)
+  {
+    super(field, new DefaultGenerator());
+
+    this.dataGenerator.setBytes(defaultValue);
+  }
+
+
   @Override
   public void writeToRecord(GenericRecord genericRecord)
   {
@@ -54,6 +62,6 @@ public class BytesFieldGenerate extends SchemaFiller{
 
   public byte[] generateBytes()
   {
-    return randGenerator.getNextBytes(getMaxBytesLength());
+    return dataGenerator.getNextBytes(getMaxBytesLength());
   }
 }

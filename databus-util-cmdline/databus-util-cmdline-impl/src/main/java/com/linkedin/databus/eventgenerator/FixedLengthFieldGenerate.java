@@ -46,6 +46,6 @@ public class FixedLengthFieldGenerate extends SchemaFiller
 
   public String generateFixedLengthString()
   {
-    return randGenerator.getNextString(0, fixedSize);
+    return dataGenerator.getNextString(0, fixedSize);
   }
 }

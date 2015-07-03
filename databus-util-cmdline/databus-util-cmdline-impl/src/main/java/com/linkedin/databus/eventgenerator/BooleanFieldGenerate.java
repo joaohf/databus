@@ -24,9 +24,18 @@ import org.apache.avro.generic.GenericRecord;
 
 public class BooleanFieldGenerate extends SchemaFiller{
 
+  protected Boolean defaultValue = null;
+
   public BooleanFieldGenerate(Field field)
   {
     super(field);
+  }
+
+  public BooleanFieldGenerate(Field field, Boolean defaultValue)
+  {
+    super(field, new DefaultGenerator());
+
+    this.dataGenerator.setBoolean(defaultValue);
   }
 
   @Override
@@ -43,6 +52,6 @@ public class BooleanFieldGenerate extends SchemaFiller{
 
   public boolean generateBoolean()
   {
-    return randGenerator.getNextBoolean();
+    return dataGenerator.getNextBoolean();
   }
 }
