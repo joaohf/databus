@@ -176,6 +176,14 @@ public class FieldToAvro
       Map<String, Object> childFieldMap = fieldToAvro(childField, false);
       fields.add(childFieldMap);
     }
+
+    // Add child field to indicate the event type
+    SimpleTypeInfo eventFieldType = new SimpleTypeInfo("VARCHAR", 1, 0);
+    FieldInfo eventFieldInfo = new FieldInfo("databus_cdc_event", eventFieldType, 0);
+
+    Map<String, Object> eventField = createEventField(eventFieldInfo, eventFieldType);
+    fields.add(eventField);
+
     fieldsDest.put("fields", fields);
 
     // Field metadata
@@ -185,6 +193,33 @@ public class FieldToAvro
     String pk = typeInfo.getPrimaryKey();  // null unless TableTypeInfo (== top-level table)
     String meta = buildMetaString(dbFieldName, dbFieldPosition, dbFieldType, pk);
     field.put("meta", meta);
+
+    // Return the Map for this field
+    return field;
+  }
+
+  private Map<String, Object> createEventField(FieldInfo fieldInfo, SimpleTypeInfo typeInfo)
+  {
+    Map<String,Object> field = new HashMap<String,Object>();
+
+    // Field name
+    String name = SchemaUtils.toCamelCase(fieldInfo.getFieldName());
+    field.put("name", name);
+
+    // Field default value (for Avro unions, corresponds to _first_ field type in list)
+    field.put("default", null);
+
+    // Field type
+    String[] type = new String[] { "null", typeInfo.getPrimitiveType().getAvroType() };
+    field.put("type", type);
+
+    // Field metadata
+//    String dbFieldName = fieldInfo.getFieldName();
+//    int dbFieldPosition = fieldInfo.getFieldPosition();
+//    String dbFieldType = fieldInfo.getFieldTypeInfo().getName();
+//
+//    String meta = buildMetaString(dbFieldName, dbFieldPosition, dbFieldType, null);
+//    field.put("meta", meta);
 
     // Return the Map for this field
     return field;
