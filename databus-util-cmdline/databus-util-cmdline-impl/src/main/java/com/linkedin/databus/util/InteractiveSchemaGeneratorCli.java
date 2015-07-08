@@ -18,7 +18,6 @@ package com.linkedin.databus.util;
 *
 */
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -53,6 +52,7 @@ import com.linkedin.databus.core.BaseCli;
 public class InteractiveSchemaGeneratorCli extends BaseCli
 {
   private static char AUTOMATIC_OPT_CHAR = 'A';
+  private static char CHECKOUT_SCHEMA_REGISTRY_CHAR = 'C';
   private static char DBNAME_OPT_CHAR = 'b';
   private static char DBURL_OPT_CHAR = 'D';
   private static char FIELDS_OPT_CHAR = 'f';
@@ -65,6 +65,7 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
 
 
   private static String AUTOMATIC_OPT_NAME = "automatic";
+  private static String CHECKOUT_SCHEMA_REGISTRY_NAME = "checkout_schema_registy";
   private static String DBNAME_OPT_NAME = "database";
   private static String DBURL_OPT_NAME = "dburl";
   private static String FIELDS_OPT_NAME = "fields";
@@ -76,6 +77,7 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
   private static String NUMBEROVERRIDE_OPT_NAME = "number_override_map";
 
   private boolean _automatic = Boolean.FALSE;
+  private boolean _checkoutSchemaRegistryLocation = Boolean.FALSE;
   private String _dbName;
   private String _dburl = InteractiveSchemaGenerator.DEFAULT_DATABASE;
   private List<String> _fields;
@@ -101,6 +103,10 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
         OptionBuilder.withLongOpt(AUTOMATIC_OPT_NAME)
                      .withDescription("Answer all questions proved through cli automatically and interactive for the rest of the options.")
                      .create(AUTOMATIC_OPT_CHAR);
+    Option checkoutSchemaRegistryOption =
+        OptionBuilder.withLongOpt(CHECKOUT_SCHEMA_REGISTRY_NAME)
+                      .withDescription("Use Source Control tool to checkout schema.")
+                      .create(CHECKOUT_SCHEMA_REGISTRY_CHAR);
     Option dbnameOption =
         OptionBuilder.withLongOpt(DBNAME_OPT_NAME)
                      .hasArg()
@@ -158,6 +164,7 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
             .create(NUMBEROVERRIDE_OPT_CHAR);
 
     _cliOptions.addOption(automaticOption);
+    _cliOptions.addOption(checkoutSchemaRegistryOption);
     _cliOptions.addOption(dbnameOption);
     _cliOptions.addOption(dburlOption);
     _cliOptions.addOption(fieldsOption);
@@ -179,6 +186,7 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
     }
 
     _automatic = _cmd.hasOption(AUTOMATIC_OPT_CHAR);
+    _checkoutSchemaRegistryLocation = _cmd.hasOption(CHECKOUT_SCHEMA_REGISTRY_CHAR);
 
     if (_cmd.hasOption(DBNAME_OPT_CHAR))
     {
@@ -207,6 +215,10 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
       String pkStr = _cmd.getOptionValue(PK_OPT_CHAR).trim();
       String[] pks = pkStr.split("[, ]+");
       _primaryKeys = Collections.unmodifiableList(Arrays.asList(pks));
+    }
+    else
+    {
+      _primaryKeys = Collections.unmodifiableList(Arrays.asList(""));
     }
 
     if (_cmd.hasOption(TABLE_OPT_CHAR))
@@ -284,6 +296,12 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
     return _automatic;
   }
 
+  /** Whether Source Control System should be used to checkout schemas */
+  public boolean isCheckoutSchemaRegistryLocation()
+  {
+      return _checkoutSchemaRegistryLocation;
+  }
+
   /** The db url to read table/view definitions */
   public String getDburl()
   {
@@ -331,6 +349,7 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
   {
     return "InteractiveSchemaGeneratorCli{" +
         "_automatic=" + _automatic +
+        ", _checkoutSchemaRegistryOption=" + _checkoutSchemaRegistryLocation +
         ", _dbName='" + _dbName + '\'' +
         ", _dburl='" + _dburl + '\'' +
         ", _fields=" + _fields +

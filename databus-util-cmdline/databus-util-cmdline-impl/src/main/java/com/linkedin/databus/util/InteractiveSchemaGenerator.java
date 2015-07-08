@@ -141,6 +141,8 @@ public class InteractiveSchemaGenerator
   HashMap<String,String> _dbFieldToAvroDataType;
   //Is the schemagenerator on automatic mode ? True = no user questions, excepts everything from cli.
   boolean _automatic;
+  //Is to checkout using Version Control System
+  boolean _checkoutSchemaRegistryLocation = false;
 
   public SchemaMetaDataManager _manager = null;
 
@@ -190,13 +192,20 @@ public class InteractiveSchemaGenerator
     loadSchemaRegistry();
     _conn =  getConnection();
     _automatic = cli.isAutomatic();
+    _checkoutSchemaRegistryLocation = cli.isCheckoutSchemaRegistryLocation();
     File tempFile = new File(_schemaRegistryLocation);
     if(!tempFile.exists())
     {
-      System.out.println("The is no directory at " + _schemaRegistryLocation + ". Attempting to checkout a new copy at this location..");
-      ProcessBuilder pb = new ProcessBuilder(PATH_TO_SVN,"checkout",DEFAULT_SCHEMA_REGISTRY_SVN_LOCATION,_schemaRegistryLocation);
-      if(executeProcessBuilder(pb) != 0)
-        throw new DatabusException("Unable to checkout the code in the given directory");
+      if (_checkoutSchemaRegistryLocation) {
+        System.out.println("There is no directory at " + _schemaRegistryLocation + ". Attempting to checkout a new copy at this location..");
+        ProcessBuilder pb = new ProcessBuilder(PATH_TO_SVN, "checkout", DEFAULT_SCHEMA_REGISTRY_SVN_LOCATION, _schemaRegistryLocation);
+        if (executeProcessBuilder(pb) != 0)
+          throw new DatabusException("Unable to checkout the code in the given directory");
+      }
+      else
+      {
+        throw new DatabusException("Unable to verify " + _schemaRegistryLocation);
+      }
     }
   }
 
@@ -796,6 +805,9 @@ public class InteractiveSchemaGenerator
    */
   private boolean verifyAndCheckoutSchemaRegistry(String schemaRegistryLocation)
   {
+    if (!_checkoutSchemaRegistryLocation)
+      return true;
+
     File tempFile = new File(schemaRegistryLocation);
     if(!tempFile.exists())
       if(!tempFile.mkdirs())
