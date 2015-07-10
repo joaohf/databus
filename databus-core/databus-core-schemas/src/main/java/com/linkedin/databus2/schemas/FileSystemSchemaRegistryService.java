@@ -55,11 +55,6 @@ public class FileSystemSchemaRegistryService extends VersionedSchemaSetBackedReg
   {
     FileSystemSchemaRegistryService service = new FileSystemSchemaRegistryService(config);
     service.initializeSchemaSet();
-    if (0 == service.getCurSchemaSet().size())
-    {
-      throw new DatabusRuntimeException("no schemas loaded; please check the schemas directory: " +
-                                        config.getSchemaDir().getAbsolutePath() );
-    }
 
     if (config.getRefreshPeriodMs() > 0)
     {
