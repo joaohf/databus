@@ -21,6 +21,9 @@ package com.linkedin.databus2.producers.db;
 
 import com.linkedin.databus.monitoring.mbean.EventSourceStatistics;
 
+import java.util.ArrayList;
+import java.util.List;
+
 //TODO add javadocs or nuke
 public class OracleTriggerMonitoredSourceInfo implements EventSourceStatisticsIface
 {
@@ -38,6 +41,10 @@ public class OracleTriggerMonitoredSourceInfo implements EventSourceStatisticsIf
   public String getEventView()
   {
     return _eventView;
+  }
+  public List<String> getPrimaryKeys()
+  {
+    return new ArrayList<String>();
   }
   public short getSourceId()
   {

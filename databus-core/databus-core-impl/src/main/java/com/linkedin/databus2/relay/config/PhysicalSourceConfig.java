@@ -47,6 +47,7 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
   // these default values are used for creating a default partition
   // for cases when no physical partition configuration is present (legacy code)
   public static final String DEFAULT_PHYSICAL_SOURCE_URI = "default_physical_source_uri";
+  public static final String DEFAULT_PHYSICAL_SOURCE_PRODUCER_TYPE = "";
   public static final Integer DEFAULT_PHYSICAL_PARTITION = 0;
   public static final String DEFAULT_PHYSICAL_PARTITION_NAME = "default_partition_name";
   public static final String DEFAULT_PHYSICAL_SOURCE_NAME = "default_physical_config_name";
@@ -64,6 +65,7 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
   private String _name; // for example - database name
   private int _id;      // physical partition
   private String _uri;  // physical machne URI
+  private String _producerType;
   private String _resourceKey; // resource key which was used in case of Cluster manager
   private String _role;
   private long _slowSourceQueryThreshold;
@@ -142,12 +144,13 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
   /** create a PhysicalSourceConfiguration without any logical sources
    * use addSource(LogicalSourceConfig s) to add logical source
    */
-  public PhysicalSourceConfig(String pSourceName, String pUri, int pPartionId) {
+  public PhysicalSourceConfig(String pSourceName, String pUri, int pPartionId, String pProducerType) {
     this();
 
     setId(pPartionId);
     setName(pSourceName);
     setUri(pUri);
+    setProducerType(pProducerType);
   }
 
   /** create physical source with some default values
@@ -167,12 +170,14 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
       // these two shouldn't ever be used
       source.setPartitionFunction("DefaultPartition");
       source.setUri("defaultUri");
+      source.setProducerType("defaultProducerType");
       newSources.add(source);
     }
     setSources(newSources);
     setName("DefaultSource");
     setId(DEFAULT_PHYSICAL_PARTITION);
     setUri(DEFAULT_PHYSICAL_SOURCE_URI);
+    setProducerType(DEFAULT_PHYSICAL_SOURCE_PRODUCER_TYPE);
   }
 
   /** create physical source with some default values
@@ -198,6 +203,7 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
     res.setName(DEFAULT_PHYSICAL_PARTITION_NAME);
     res.setId(DEFAULT_PHYSICAL_PARTITION);
     res.setUri(DEFAULT_PHYSICAL_SOURCE_URI);
+    res.setProducerType(DEFAULT_PHYSICAL_SOURCE_PRODUCER_TYPE);
 
     return res;
   }
@@ -244,6 +250,16 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
   public void setUri(String uri)
   {
     _uri = uri;
+  }
+
+  public String getProducerType()
+  {
+    return _producerType;
+  }
+
+  public void setProducerType(String producerType)
+  {
+    _uri = producerType;
   }
 
   public int getId()
@@ -481,7 +497,7 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
       sourcesStaticConfigs[i] = _sources.get(i).build();
     }
     ChunkingType chunkingType = ChunkingType.valueOf(_chunkingType);
-    return new PhysicalSourceStaticConfig(_name, _id, _uri, _resourceKey,
+    return new PhysicalSourceStaticConfig(_name, _id, _uri, _producerType, _resourceKey,
                                           sourcesStaticConfigs, _role,
                                           _slowSourceQueryThreshold,
                                           _restartScnOffset,

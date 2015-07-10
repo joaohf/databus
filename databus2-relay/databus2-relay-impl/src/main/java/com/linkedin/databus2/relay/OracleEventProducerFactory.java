@@ -30,6 +30,7 @@ import java.util.List;
 import javax.management.MBeanServer;
 import javax.sql.DataSource;
 
+import com.linkedin.databus2.producers.db.*;
 import org.apache.log4j.Logger;
 
 import com.linkedin.databus.core.DbusEventBufferAppendable;
@@ -43,10 +44,6 @@ import com.linkedin.databus2.producers.ConstantPartitionFunction;
 import com.linkedin.databus2.producers.EventCreationException;
 import com.linkedin.databus2.producers.EventProducer;
 import com.linkedin.databus2.producers.PartitionFunction;
-import com.linkedin.databus2.producers.db.EventFactory;
-import com.linkedin.databus2.producers.db.OracleTriggerMonitoredSourceInfo;
-import com.linkedin.databus2.producers.db.OracleAvroGenericEventFactory;
-import com.linkedin.databus2.producers.db.OracleEventProducer;
 import com.linkedin.databus2.relay.config.LogicalSourceStaticConfig;
 import com.linkedin.databus2.relay.config.PhysicalSourceStaticConfig;
 import com.linkedin.databus2.schemas.NoSuchSchemaException;
@@ -58,57 +55,98 @@ import com.linkedin.databus2.schemas.SchemaRegistryService;
  */
 public class OracleEventProducerFactory
 {
-  private final Logger _log = Logger.getLogger(getClass());
+    private final Logger _log = Logger.getLogger(getClass());
 
-  public EventProducer buildEventProducer(PhysicalSourceStaticConfig physicalSourceConfig,
-                                 SchemaRegistryService schemaRegistryService,
-                                 DbusEventBufferAppendable dbusEventBuffer,
-                                 MBeanServer mbeanServer,
-                                 DbusEventsStatisticsCollector dbusEventsStatisticsCollector,
-                                 MaxSCNReaderWriter _maxScnReaderWriter
-                                 )
-  throws DatabusException, EventCreationException, UnsupportedKeyException, SQLException, InvalidConfigException
-  {
-    // Make sure the URI from the configuration file identifies an Oracle JDBC source.
-    String uri = physicalSourceConfig.getUri();
-    if(!uri.startsWith("jdbc:oracle"))
-    {
-      throw new InvalidConfigException("Invalid source URI (" + physicalSourceConfig.getUri() + "). Only jdbc:oracle: URIs are supported.");
-    }
-
-    // Parse each one of the logical sources
-    List<OracleTriggerMonitoredSourceInfo> sources = new ArrayList<OracleTriggerMonitoredSourceInfo>();
-    for(LogicalSourceStaticConfig sourceConfig : physicalSourceConfig.getSources())
-    {
-      OracleTriggerMonitoredSourceInfo source = buildOracleMonitoredSourceInfo(sourceConfig, physicalSourceConfig, schemaRegistryService);
-      sources.add(source);
-    }
-
+    private List<OracleTriggerMonitoredSourceInfo> sources;
     DataSource ds = null;
-    try
+
+    private void buildEventProducer(PhysicalSourceStaticConfig physicalSourceConfig,
+                                    SchemaRegistryService schemaRegistryService
+    )
+            throws DatabusException, EventCreationException, UnsupportedKeyException, SQLException
     {
-        ds = OracleJarUtils.createOracleDataSource(uri);
-    } catch (Exception e)
-    {
-    	String errMsg = "Oracle URI likely not supported. Trouble creating OracleDataSource";
-    	_log.error(errMsg);
-    	throw new InvalidConfigException(errMsg + e.getMessage());
+        // Make sure the URI from the configuration file identifies an Oracle JDBC source.
+        String uri = physicalSourceConfig.getUri();
+        if(!uri.startsWith("jdbc:oracle"))
+        {
+            throw new InvalidConfigException("Invalid source URI (" + physicalSourceConfig.getUri() + "). Only jdbc:oracle: URIs are supported.");
+        }
+
+        // Parse each one of the logical sources
+        sources = new ArrayList<OracleTriggerMonitoredSourceInfo>();
+        for(LogicalSourceStaticConfig sourceConfig : physicalSourceConfig.getSources())
+        {
+            OracleTriggerMonitoredSourceInfo source = buildOracleMonitoredSourceInfo(sourceConfig, physicalSourceConfig, schemaRegistryService);
+            sources.add(source);
+        }
+
+        try
+        {
+            ds = OracleJarUtils.createOracleDataSource(uri);
+        } catch (Exception e)
+        {
+            String errMsg = "Oracle URI likely not supported. Trouble creating OracleDataSource";
+            _log.error(errMsg);
+            throw new InvalidConfigException(errMsg + e.getMessage());
+        }
     }
 
-    // Create the event producer
-    EventProducer eventProducer = new OracleEventProducer(sources,
-                                                          ds,
-                                                          dbusEventBuffer,
-                                                          true,
-                                                          dbusEventsStatisticsCollector,
-                                                          _maxScnReaderWriter,
-                                                          physicalSourceConfig,
-                                                          ManagementFactory.getPlatformMBeanServer());
+    public EventProducer buildTxlogEventProducer(PhysicalSourceStaticConfig physicalSourceConfig,
+                                                 SchemaRegistryService schemaRegistryService,
+                                                 DbusEventBufferAppendable dbusEventBuffer,
+                                                 MBeanServer mbeanServer,
+                                                 DbusEventsStatisticsCollector dbusEventsStatisticsCollector,
+                                                 MaxSCNReaderWriter _maxScnReaderWriter
+    )
+            throws DatabusException, EventCreationException, UnsupportedKeyException, SQLException, InvalidConfigException
+    {
 
-    _log.info("Created OracleEventProducer for config:  " + physicalSourceConfig +
-              " with slowSourceQueryThreshold = " + physicalSourceConfig.getSlowSourceQueryThreshold());
-    return eventProducer;
-  }
+        buildEventProducer(physicalSourceConfig,
+                schemaRegistryService);
+
+        // Create the event producer
+        EventProducer eventProducer = new OracleEventProducer(sources,
+                ds,
+                dbusEventBuffer,
+                true,
+                dbusEventsStatisticsCollector,
+                _maxScnReaderWriter,
+                physicalSourceConfig,
+                ManagementFactory.getPlatformMBeanServer(),
+                "txlog");
+
+        _log.info("Created OracleEventProducer for config:  " + physicalSourceConfig +
+                " with slowSourceQueryThreshold = " + physicalSourceConfig.getSlowSourceQueryThreshold());
+        return eventProducer;
+    }
+
+    public EventProducer buildJournalEventProducer(PhysicalSourceStaticConfig physicalSourceConfig,
+                                                 SchemaRegistryService schemaRegistryService,
+                                                 DbusEventBufferAppendable dbusEventBuffer,
+                                                 MBeanServer mbeanServer,
+                                                 DbusEventsStatisticsCollector dbusEventsStatisticsCollector,
+                                                 MaxSCNReaderWriter _maxScnReaderWriter
+    )
+            throws DatabusException, EventCreationException, UnsupportedKeyException, SQLException, InvalidConfigException
+    {
+        buildEventProducer(physicalSourceConfig,
+                schemaRegistryService);
+
+        // Create the event producer
+        EventProducer eventProducer = new OracleEventProducer(sources,
+                ds,
+                dbusEventBuffer,
+                true,
+                dbusEventsStatisticsCollector,
+                _maxScnReaderWriter,
+                physicalSourceConfig,
+                ManagementFactory.getPlatformMBeanServer(),
+                "journal");
+
+        _log.info("Created OracleEventProducer for config:  " + physicalSourceConfig +
+                " with slowSourceQueryThreshold = " + physicalSourceConfig.getSlowSourceQueryThreshold());
+        return eventProducer;
+    }
 
   protected OracleAvroGenericEventFactory createEventFactory( String eventViewSchema, String eventView,
 		                                                      LogicalSourceStaticConfig sourceConfig, PhysicalSourceStaticConfig pConfig,

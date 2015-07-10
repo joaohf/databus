@@ -166,21 +166,33 @@ public class DatabusRelayMain extends HttpRelay {
 
 		// Create the event producer
 		String uri = pConfig.getUri();
-    if(uri == null)
-      throw new DatabusException("Uri is required to start the relay");
-    uri = uri.trim();
+		String producerType = pConfig.getProducerType();
+        if(uri == null)
+            throw new DatabusException("Uri is required to start the relay");
+		if(producerType == null)
+			producerType = "txlog";
+        uri = uri.trim();
+		producerType = producerType.trim();
 		EventProducer producer = null;
 		if (uri.startsWith("jdbc:")) {
 		  SourceType sourceType = pConfig.getReplBitSetter().getSourceType();
           if (SourceType.TOKEN.equals(sourceType))
             throw new DatabusException("Token Source-type for Replication bit setter config cannot be set for trigger-based Databus relay !!");
 
-			// if a buffer for this partiton exists - we are overwri
-			producer = new OracleEventProducerFactory().buildEventProducer(
-					pConfig, schemaRegistryService, dbusEventBuffer,
-					getMbeanServer(), _inBoundStatsCollectors
-							.getStatsCollector(statsCollectorName),
-					maxScnReaderWriters);
+			if (producerType.startsWith("txlog")) {
+				// if a buffer for this partiton exists - we are overwri
+				producer = new OracleEventProducerFactory().buildTxlogEventProducer(
+						pConfig, schemaRegistryService, dbusEventBuffer,
+						getMbeanServer(), _inBoundStatsCollectors
+								.getStatsCollector(statsCollectorName),
+						maxScnReaderWriters);
+			} else if (producerType.startsWith("journal")) {
+				producer = new OracleEventProducerFactory().buildJournalEventProducer(
+						pConfig, schemaRegistryService, dbusEventBuffer,
+						getMbeanServer(), _inBoundStatsCollectors
+								.getStatsCollector(statsCollectorName),
+						maxScnReaderWriters);
+			}
 		} else if (uri.startsWith("mock")) {
 		  // Get all relevant pConfig attributes
 		  //TODO add real instantiation

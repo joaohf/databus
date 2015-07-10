@@ -21,6 +21,7 @@ public class LogicalSourceConfig implements ConfigBuilder<LogicalSourceStaticCon
   private short _id = -1;
   private String _name;
   private String _uri;
+  private String _producerType;
   private String _partitionFunction;
   private short _partition;
   private boolean _skipInfinityScn = false;
@@ -87,6 +88,14 @@ public class LogicalSourceConfig implements ConfigBuilder<LogicalSourceStaticCon
   public void setUri(String uri)
   {
     _uri = uri;
+  }
+  public String getProducerType()
+  {
+      return _producerType;
+  }
+  public void setProducerType(String producerType)
+  {
+      _producerType = producerType;
   }
 
  public void setPartition(short partition)

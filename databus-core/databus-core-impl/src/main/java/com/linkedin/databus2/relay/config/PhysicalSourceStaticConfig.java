@@ -12,6 +12,7 @@ public class PhysicalSourceStaticConfig
   private final int _id;
   private final PhysicalPartition _partiton;
   private final String _uri;
+  private final String _producerType;
   private final PhysicalSource _source;
   private final LogicalSourceStaticConfig[] _sources;
   private final long _slowSourceQueryThreshold;
@@ -77,6 +78,7 @@ public class PhysicalSourceStaticConfig
   public PhysicalSourceStaticConfig(String name,
   	                                int id,
                                     String uri,
+                                    String producerType,
                                     String resourceKey,
                                     LogicalSourceStaticConfig[] sources,
                                     String role,
@@ -103,7 +105,8 @@ public class PhysicalSourceStaticConfig
     _id = id;
     _partiton = new PhysicalPartition(id, _name);
     _uri = uri;
-    _source = new PhysicalSource(uri, role, resourceKey);
+    _producerType = producerType;
+    _source = new PhysicalSource(uri, role, resourceKey, producerType);
     _sources = sources;
     _slowSourceQueryThreshold = slowSourceQueryThreshold;
     _restartScnOffset = restartScnOffset;
@@ -155,6 +158,11 @@ public class PhysicalSourceStaticConfig
   public String getUri()
   {
     return _uri;
+  }
+
+  public String getProducerType()
+  {
+    return _producerType;
   }
 
   /** get PhysicalSource */
@@ -220,6 +228,7 @@ public class PhysicalSourceStaticConfig
     StringBuilder sb = new StringBuilder();
     sb.append("name=").append(_name).append(";part=").append(_partiton).append(";uri=")
     .append(StringUtils.sanitizeDbUri(_uri))
+    .append(";producer=").append(_producerType)
     .append(";role=").append(_role).append(";rsKey=").append(_resourceKey).append(";#src=")
     .append(_sources.length);
 

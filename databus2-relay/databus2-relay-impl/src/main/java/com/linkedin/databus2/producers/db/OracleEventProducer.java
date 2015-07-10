@@ -59,7 +59,8 @@ public class OracleEventProducer extends AbstractEventProducer
     DbusEventsStatisticsCollector dbusEventsStatisticsCollector,
     MaxSCNReaderWriter maxScnReaderWriter,
     PhysicalSourceStaticConfig physicalSourceConfig,
-    MBeanServer mbeanServer
+    MBeanServer mbeanServer,
+    String producerType
     ) throws DatabusException
   {
     super(eventBuffer, maxScnReaderWriter, physicalSourceConfig, mbeanServer);
@@ -91,16 +92,33 @@ public class OracleEventProducer extends AbstractEventProducer
     		throw new DatabusException("Failed to initialize event statistics mbeans.", ex);
     	}
     }
-    _sourceDBEventReader = new OracleTxlogEventReader(physicalSourceConfig.getName(), sources,
-                                                      dataSource, eventBuffer, enableTracing,
-                                                      dbusEventsStatisticsCollector,
-                                                      maxScnReaderWriter,
-                                                      physicalSourceConfig.getSlowSourceQueryThreshold(),
-                                                      physicalSourceConfig.getChunkingType(),
-                                                      physicalSourceConfig.getTxnsPerChunk(),
-                                                      physicalSourceConfig.getScnChunkSize(),
-                                                      physicalSourceConfig.getChunkedScnThreshold(),
-                                                      physicalSourceConfig.getMaxScnDelayMs());
+
+      if (producerType.equals("txlog")) {
+          _sourceDBEventReader = new OracleTxlogEventReader(physicalSourceConfig.getName(), sources,
+                  dataSource, eventBuffer, enableTracing,
+                  dbusEventsStatisticsCollector,
+                  maxScnReaderWriter,
+                  physicalSourceConfig.getSlowSourceQueryThreshold(),
+                  physicalSourceConfig.getChunkingType(),
+                  physicalSourceConfig.getTxnsPerChunk(),
+                  physicalSourceConfig.getScnChunkSize(),
+                  physicalSourceConfig.getChunkedScnThreshold(),
+                  physicalSourceConfig.getMaxScnDelayMs());
+      } else if (producerType.equals("journal")) {
+          _sourceDBEventReader = new OracleJournalEventReader(physicalSourceConfig.getName(), sources,
+                  dataSource, eventBuffer, enableTracing,
+                  dbusEventsStatisticsCollector,
+                  maxScnReaderWriter,
+                  physicalSourceConfig.getSlowSourceQueryThreshold(),
+                  physicalSourceConfig.getChunkingType(),
+                  physicalSourceConfig.getTxnsPerChunk(),
+                  physicalSourceConfig.getScnChunkSize(),
+                  physicalSourceConfig.getChunkedScnThreshold(),
+                  physicalSourceConfig.getMaxScnDelayMs());
+      } else {
+          _log.error("There is no valid producer type: " + producerType);
+          throw new DatabusException("Failed to initialize event reader");
+      }
 
   }
 
