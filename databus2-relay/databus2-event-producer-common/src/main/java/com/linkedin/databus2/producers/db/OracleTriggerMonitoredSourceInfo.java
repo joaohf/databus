@@ -35,6 +35,7 @@ public class OracleTriggerMonitoredSourceInfo implements EventSourceStatisticsIf
   private final String _eventScnChunkedQueryHints;
   private final String _eventView;
   private final String _eventSchema;
+  private final String _journalSchemaTemplate;
   private final EventSourceStatistics _statisticsBean;
   private final boolean _skipInfinityScn;
 
@@ -44,7 +45,7 @@ public class OracleTriggerMonitoredSourceInfo implements EventSourceStatisticsIf
   }
   public List<String> getPrimaryKeys()
   {
-    return new ArrayList<String>();
+    return getFactory().getPrimaryKeySchema().getPKeyList();
   }
   public short getSourceId()
   {
@@ -72,6 +73,14 @@ public class OracleTriggerMonitoredSourceInfo implements EventSourceStatisticsIf
     return _eventSchema;
   }
 
+  public String getJournalTableSchemaTemplate() {
+    return _journalSchemaTemplate;
+  }
+
+  public String getJournalTable() {
+    return _journalSchemaTemplate + _eventView;
+  }
+
   @Override
   public EventSourceStatistics getStatisticsBean()
   {
@@ -87,12 +96,13 @@ public class OracleTriggerMonitoredSourceInfo implements EventSourceStatisticsIf
 	return _eventScnChunkedQueryHints;
   }
 
-  public OracleTriggerMonitoredSourceInfo(short sourceId, String sourceName, String eventSchema, String eventView,
+  public OracleTriggerMonitoredSourceInfo(short sourceId, String sourceName, String eventSchema, String eventView, String journalSchemaTemplate,
           EventFactory factory, EventSourceStatistics statisticsBean,
           String eventQueryHints, String eventTxnChunkedQueryHints, String eventScnChunkedQueryHints, boolean skipInfinityScn)
   {
 	    _eventView = eventView;
 	    _eventSchema = eventSchema;
+        _journalSchemaTemplate = journalSchemaTemplate;
 	    _sourceId = sourceId;
 	    _factory = factory;
 	    _sourceName = sourceName;
@@ -110,11 +120,11 @@ public class OracleTriggerMonitoredSourceInfo implements EventSourceStatisticsIf
   }
 
 
-  public OracleTriggerMonitoredSourceInfo(short sourceId, String sourceName, String eventSchema, String eventView,
+  public OracleTriggerMonitoredSourceInfo(short sourceId, String sourceName, String eventSchema, String eventView, String journalSchemaTemplate,
                              EventFactory factory, EventSourceStatistics statisticsBean,
                              boolean skipInfinityScn)
   {
-    this(sourceId, sourceName, eventSchema, eventView, factory, statisticsBean,  null, null, null,
+    this(sourceId, sourceName, eventSchema, eventView, journalSchemaTemplate, factory, statisticsBean,  null, null, null,
          skipInfinityScn);
   }
 

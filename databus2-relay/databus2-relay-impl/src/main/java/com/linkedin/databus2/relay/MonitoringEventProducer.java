@@ -39,27 +39,27 @@ import com.linkedin.databus2.producers.db.EventReaderSummary;
 import com.linkedin.databus2.producers.db.OracleTriggerMonitoredSourceInfo;
 import com.linkedin.databus2.util.DBHelper;
 
-public class MonitoringEventProducer implements EventProducer , Runnable {
+public abstract class MonitoringEventProducer implements EventProducer , Runnable {
 
-	private final	List<OracleTriggerMonitoredSourceInfo> _sources ;
-	private final String _name;
-	private final String _dbname;
+	protected final	List<OracleTriggerMonitoredSourceInfo> _sources ;
+	protected final String _name;
+	protected final String _dbname;
 	protected enum MonitorState {INIT,RUNNING, PAUSE,SHUT}
 	MonitorState _state;
-	private final HashMap<Short, String> _monitorQueriesBySource;
+	protected final HashMap<Short, String> _monitorQueriesBySource;
 	static protected final long MAX_SCN_POLL_TIME = 10*60*1000;
 	static protected final long PER_SRC_MAX_SCN_POLL_TIME = 30*1000;
-	private Thread _curThread;
-	private final String _uri;
+	protected Thread _curThread;
+	protected final String _uri;
 	/** Logger for error and debug messages. */
-	private final Logger _log = Logger.getLogger(getClass());
-	private String _schema;
+	protected final Logger _log = Logger.getLogger(getClass());
+	protected String _schema;
 
 	//stored as state ; as it may be required for graceful shutdown ; in case  of exception
-	private Connection _con;
-	private DataSource _dataSource;
-	private final DBStatistics _dbStats;
-	private final MBeanServer _mbeanServer;
+	protected Connection _con;
+	protected DataSource _dataSource;
+	protected final DBStatistics _dbStats;
+	protected final MBeanServer _mbeanServer;
 
 
 	public MonitoringEventProducer(String name,String dbname, String uri,List<OracleTriggerMonitoredSourceInfo> sources,MBeanServer mbeanServer) {
@@ -216,58 +216,15 @@ public class MonitoringEventProducer implements EventProducer , Runnable {
 	  _curThread = null;
 	}
 
-	private String generateEventQuery(OracleTriggerMonitoredSourceInfo sourceInfo)
-	{
-	  /*
-	  select scn from sy$txlog where txn = (select max(txn) from sy$member_account);
-	  */
-		StringBuilder sql = new StringBuilder();
-
-		sql.append("select  scn from ").append(_schema).append("sy$txlog ");
-		sql.append("where txn = ");
-		sql.append (" ( select max(txn) from ").append(_schema).append("sy$").append(sourceInfo.getEventView()).append(" )");
-		_log.info("Monitoring Query: " + sql.toString());
-
-		return sql.toString();
-	}
+	protected abstract String generateEventQuery(OracleTriggerMonitoredSourceInfo sourceInfo);
 
 	/**
 	 *
 	   * Returns the max SCN from the sy$txlog table
 	   * @param db
 	   * @return the max scn
-	   * @throws SQLException
 	   */
-	  private long getMaxTxlogSCN(Connection db) throws SQLException
-	  {
-	    long maxScn = EventReaderSummary.NO_EVENTS_SCN;
-
-
-	    String sql = "select " +
-	                 "max(" + _schema + "sync_core.getScn(scn,ora_rowscn)) " +
-	                 "from " + _schema + "sy$txlog where " +
-	                 "scn >= (select max(scn) from " + _schema + "sy$txlog)";
-
-	    PreparedStatement pstmt = null;
-	    ResultSet rs = null;
-
-	    try
-	    {
-	      pstmt = db.prepareStatement(sql);
-	      rs = pstmt.executeQuery();
-
-	      if(rs.next())
-	      {
-	        maxScn = rs.getLong(1);
-	      }
-	    }
-	    finally
-	    {
-            DBHelper.close(rs, pstmt, null);
-	    }
-
-	    return maxScn;
-	  }
+	protected abstract long getMaxTxlogSCN(Connection db) throws SQLException;
 
 	protected boolean openDbConn() {
 		if (_dataSource == null)

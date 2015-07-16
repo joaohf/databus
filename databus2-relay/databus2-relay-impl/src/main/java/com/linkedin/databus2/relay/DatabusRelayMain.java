@@ -135,6 +135,8 @@ public class DatabusRelayMain extends HttpRelay {
 			throws DatabusException, EventCreationException,
 			UnsupportedKeyException, SQLException, InvalidConfigException {
 
+		MonitoringEventProducer monitoringProducer = null;
+
 		// Register a command to allow start/stop/status of the relay
 		List<EventProducer> plist = new ArrayList<EventProducer>();
 
@@ -186,12 +188,24 @@ public class DatabusRelayMain extends HttpRelay {
 						getMbeanServer(), _inBoundStatsCollectors
 								.getStatsCollector(statsCollectorName),
 						maxScnReaderWriters);
+				monitoringProducer = new OracleTxlogMonitoringEventProducer(
+						"dbMonitor." + pPartition.toSimpleString(),
+						pConfig.getName(), pConfig.getUri(),
+						((OracleEventProducer) producer).getMonitoredSourceInfos(),
+						getMbeanServer());
+
 			} else if (producerType.startsWith("journal")) {
 				producer = new OracleEventProducerFactory().buildJournalEventProducer(
 						pConfig, schemaRegistryService, dbusEventBuffer,
 						getMbeanServer(), _inBoundStatsCollectors
 								.getStatsCollector(statsCollectorName),
 						maxScnReaderWriters);
+				monitoringProducer = new OracleJournalMonitoringEventProducer(
+						"dbMonitor." + pPartition.toSimpleString(),
+						pConfig.getName(), pConfig.getUri(),
+						((OracleEventProducer) producer).getMonitoredSourceInfos(),
+						getMbeanServer());
+
 			}
 		} else if (uri.startsWith("mock")) {
 		  // Get all relevant pConfig attributes
@@ -244,11 +258,6 @@ public class DatabusRelayMain extends HttpRelay {
 		plist.add(producer);
 		// append 'monitoring event producer'
 		if (producer instanceof OracleEventProducer) {
-			MonitoringEventProducer monitoringProducer = new MonitoringEventProducer(
-					"dbMonitor." + pPartition.toSimpleString(),
-					pConfig.getName(), pConfig.getUri(),
-					((OracleEventProducer) producer).getMonitoredSourceInfos(),
-					getMbeanServer());
 			_monitoringProducers.put(pPartition, monitoringProducer);
 			plist.add(monitoringProducer);
 		}

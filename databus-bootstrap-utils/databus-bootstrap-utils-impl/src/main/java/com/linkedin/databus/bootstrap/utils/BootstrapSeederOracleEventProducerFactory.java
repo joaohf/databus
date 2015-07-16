@@ -21,6 +21,7 @@ package com.linkedin.databus.bootstrap.utils;
 
 import java.util.Map;
 
+import com.linkedin.databus2.core.DatabusException;
 import org.apache.log4j.Logger;
 
 import com.linkedin.databus.core.UnsupportedKeyException;
@@ -51,7 +52,7 @@ public class BootstrapSeederOracleEventProducerFactory extends
 	protected OracleAvroGenericEventFactory createEventFactory(String eventViewSchema, String eventView,
 			LogicalSourceStaticConfig sourceConfig, PhysicalSourceStaticConfig pConfig,
 			String eventSchema, PartitionFunction partitionFunction)
-					throws EventCreationException, UnsupportedKeyException
+					throws DatabusException, EventCreationException, UnsupportedKeyException
 	{
 		_log.info("Creating OracleAvroGenericEventFactory with seeder Chunk Key :" + _seederChunkKeyColumnNamesMap.get(eventView));
 		return new BootstrapSeederOracleAvroGenericEventFactory(sourceConfig.getId(), (short)pConfig.getId(),

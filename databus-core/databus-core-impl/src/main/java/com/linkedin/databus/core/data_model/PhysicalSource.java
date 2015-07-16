@@ -39,6 +39,7 @@ public class PhysicalSource
 
   private final String _uri;
   private final String _producerType;
+  private final String _journalSchemaTemplate;
   private final String _resourceKey;
   private final Role _role;
 
@@ -53,22 +54,23 @@ public class PhysicalSource
   static final String SLAVE_PHISYCAL_SOURCE_URI  = "databus:physical-source:SLAVE";
 
   public static final PhysicalSource ANY_PHISYCAL_SOURCE =
-      new PhysicalSource(ANY_PHISYCAL_SOURCE_URI, PHYSICAL_SOURCE_ANY, "", "");
+      new PhysicalSource(ANY_PHISYCAL_SOURCE_URI, PHYSICAL_SOURCE_ANY, "", "", "");
   public static final PhysicalSource MASTER_PHISYCAL_SOURCE =
-      new PhysicalSource(MASTER_PHISYCAL_SOURCE_URI, PHYSICAL_SOURCE_MASTER, "", "");
+      new PhysicalSource(MASTER_PHISYCAL_SOURCE_URI, PHYSICAL_SOURCE_MASTER, "", "", "");
   public static final PhysicalSource SLAVE_PHISYCAL_SOURCE =
-      new PhysicalSource(SLAVE_PHISYCAL_SOURCE_URI, PHYSICAL_SOURCE_SLAVE, "", "");
+      new PhysicalSource(SLAVE_PHISYCAL_SOURCE_URI, PHYSICAL_SOURCE_SLAVE, "", "", "");
 
   public PhysicalSource(String sourceUri) {
-    this(sourceUri, PHYSICAL_SOURCE_MASTER, "", "");
+    this(sourceUri, PHYSICAL_SOURCE_MASTER, "", "", "");
   }
 
-  public PhysicalSource(String sourceUri, String role, String resourceKey, String producerType)
+  public PhysicalSource(String sourceUri, String role, String resourceKey, String producerType, String journalSchemaTemplate)
   {
     super();
     if (null == sourceUri) throw new NullPointerException("physical source uri");
     _uri = sourceUri;
     _producerType = producerType;
+    _journalSchemaTemplate = journalSchemaTemplate;
 
     _role = new Role(role);
     _resourceKey = resourceKey;
@@ -110,6 +112,9 @@ public class PhysicalSource
   /** The producer type */
   public String getProducerType() { return _producerType; }
 
+  /** The journalSchemaTemplate */
+  public String getJournalSchemaTemplate() { return _journalSchemaTemplate; }
+
   /** The physical source ROle */
   public Role getRole()
   {
@@ -125,7 +130,7 @@ public class PhysicalSource
   public String toString()
   {
     return new StringBuilder("uri=").append(_uri).
-        append(";producer=").append(_producerType.toString()).
+        append(";producerType=").append(_producerType.toString()).
         append(";role=").append(_role.toString()).
         append(";rk=").append(_resourceKey).toString();
   }
@@ -135,7 +140,7 @@ public class PhysicalSource
     StringBuilder sb = new StringBuilder(50);
     sb.append("{");
     sb.append("\"uri\":\""); sb.append(_uri); sb.append("\",");
-    sb.append("\"producer\":\""); sb.append(_producerType); sb.append("\",");
+    sb.append("\"producerType\":\""); sb.append(_producerType); sb.append("\",");
     sb.append("\"role\":\""); sb.append(_role); sb.append("\"");
     sb.append("}");
 
@@ -187,6 +192,7 @@ public class PhysicalSource
   {
     private String _uri = ANY_PHISYCAL_SOURCE_URI;
     private String _producerType = ANY_PHISYCAL_PRODUCER_TYPE;
+    private String _journalSchemaTemplate = "";
     private String _role = PHYSICAL_SOURCE_MASTER;
     private String _resourceKey = "";
 
@@ -209,6 +215,10 @@ public class PhysicalSource
     {
       _producerType = producerType;
     }
+
+    public String getJournalSchemaTemplate() { return _journalSchemaTemplate; }
+
+    public void setJournalSchemaTemplate(String journalSchemaTemplate) { _journalSchemaTemplate = journalSchemaTemplate; }
 
     public String getRole()
     {
@@ -248,7 +258,7 @@ public class PhysicalSource
 
     public PhysicalSource build()
     {
-      return new PhysicalSource(_uri, _role, _resourceKey, _producerType);
+      return new PhysicalSource(_uri, _role, _resourceKey, _producerType, _journalSchemaTemplate);
     }
 
   }

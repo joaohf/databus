@@ -47,7 +47,7 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
   // these default values are used for creating a default partition
   // for cases when no physical partition configuration is present (legacy code)
   public static final String DEFAULT_PHYSICAL_SOURCE_URI = "default_physical_source_uri";
-  public static final String DEFAULT_PHYSICAL_SOURCE_PRODUCER_TYPE = "";
+  public static final String DEFAULT_PHYSICAL_SOURCE_PRODUCER_TYPE = "default_physical_source_producer";
   public static final Integer DEFAULT_PHYSICAL_PARTITION = 0;
   public static final String DEFAULT_PHYSICAL_PARTITION_NAME = "default_partition_name";
   public static final String DEFAULT_PHYSICAL_SOURCE_NAME = "default_physical_config_name";
@@ -66,6 +66,7 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
   private int _id;      // physical partition
   private String _uri;  // physical machne URI
   private String _producerType;
+  private String _journalSchemaTemplate;
   private String _resourceKey; // resource key which was used in case of Cluster manager
   private String _role;
   private long _slowSourceQueryThreshold;
@@ -197,6 +198,7 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
       // these two shouldn't ever be used
       source.setPartitionFunction("DefaultPartition");
       source.setUri("defaultUri");
+      source.setProducerType("defaultProducerType");
       newSources.add(source);
     }
     res.setSources(newSources);
@@ -204,6 +206,7 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
     res.setId(DEFAULT_PHYSICAL_PARTITION);
     res.setUri(DEFAULT_PHYSICAL_SOURCE_URI);
     res.setProducerType(DEFAULT_PHYSICAL_SOURCE_PRODUCER_TYPE);
+    res.setJournalSchemaTemplate("");
 
     return res;
   }
@@ -259,7 +262,17 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
 
   public void setProducerType(String producerType)
   {
-    _uri = producerType;
+    _producerType = producerType;
+  }
+
+  public String getJournalSchemaTemplate()
+  {
+    return _journalSchemaTemplate;
+  }
+
+  public void setJournalSchemaTemplate(String journalSchemaTemplate)
+  {
+    _journalSchemaTemplate = journalSchemaTemplate;
   }
 
   public int getId()
@@ -497,7 +510,7 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
       sourcesStaticConfigs[i] = _sources.get(i).build();
     }
     ChunkingType chunkingType = ChunkingType.valueOf(_chunkingType);
-    return new PhysicalSourceStaticConfig(_name, _id, _uri, _producerType, _resourceKey,
+    return new PhysicalSourceStaticConfig(_name, _id, _uri, _producerType, _journalSchemaTemplate, _resourceKey,
                                           sourcesStaticConfigs, _role,
                                           _slowSourceQueryThreshold,
                                           _restartScnOffset,

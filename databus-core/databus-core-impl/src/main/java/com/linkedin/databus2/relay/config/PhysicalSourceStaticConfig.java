@@ -13,6 +13,7 @@ public class PhysicalSourceStaticConfig
   private final PhysicalPartition _partiton;
   private final String _uri;
   private final String _producerType;
+  private final String _journalSchemaTemplate;
   private final PhysicalSource _source;
   private final LogicalSourceStaticConfig[] _sources;
   private final long _slowSourceQueryThreshold;
@@ -79,6 +80,7 @@ public class PhysicalSourceStaticConfig
   	                                int id,
                                     String uri,
                                     String producerType,
+                                    String journalSchemaTemplate,
                                     String resourceKey,
                                     LogicalSourceStaticConfig[] sources,
                                     String role,
@@ -106,7 +108,8 @@ public class PhysicalSourceStaticConfig
     _partiton = new PhysicalPartition(id, _name);
     _uri = uri;
     _producerType = producerType;
-    _source = new PhysicalSource(uri, role, resourceKey, producerType);
+    _journalSchemaTemplate = journalSchemaTemplate;
+    _source = new PhysicalSource(uri, role, resourceKey, producerType, journalSchemaTemplate);
     _sources = sources;
     _slowSourceQueryThreshold = slowSourceQueryThreshold;
     _restartScnOffset = restartScnOffset;
@@ -164,6 +167,8 @@ public class PhysicalSourceStaticConfig
   {
     return _producerType;
   }
+
+  public String getJournalSchemaTemplate() { return _journalSchemaTemplate; }
 
   /** get PhysicalSource */
   public PhysicalSource getPhysicalSource()

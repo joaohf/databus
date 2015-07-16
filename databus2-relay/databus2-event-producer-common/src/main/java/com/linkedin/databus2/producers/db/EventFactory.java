@@ -28,6 +28,7 @@ import com.linkedin.databus.core.DbusEventBufferAppendable;
 import com.linkedin.databus.core.UnsupportedKeyException;
 import com.linkedin.databus.core.monitoring.mbean.DbusEventsStatisticsCollector;
 import com.linkedin.databus2.producers.EventCreationException;
+import com.linkedin.databus2.producers.ds.PrimaryKeySchema;
 
 /**
  * Factory interface for event creation factory classes.
@@ -79,4 +80,10 @@ public interface EventFactory
                                    boolean enableTracing,
                                    DbusEventsStatisticsCollector dbusEventsStatisticsCollector)
   throws EventCreationException, UnsupportedKeyException;
+
+  /**
+   * Return the Schema Primary keys
+   * @return PrimaryKeySchema instance
+   */
+  public PrimaryKeySchema getPrimaryKeySchema();
 }

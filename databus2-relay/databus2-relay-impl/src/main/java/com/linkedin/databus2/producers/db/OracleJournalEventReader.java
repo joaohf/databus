@@ -25,7 +25,6 @@ import com.linkedin.databus.core.monitoring.mbean.DbusEventsStatisticsCollector;
 import com.linkedin.databus2.core.DatabusException;
 import com.linkedin.databus2.core.seq.MaxSCNWriter;
 import com.linkedin.databus2.producers.EventCreationException;
-import com.linkedin.databus2.relay.config.LogicalSourceConfig;
 import com.linkedin.databus2.relay.config.PhysicalSourceStaticConfig.ChunkingType;
 import com.linkedin.databus2.util.DBHelper;
 import org.apache.log4j.Logger;
@@ -62,10 +61,13 @@ public class OracleJournalEventReader
     private final boolean _enableTracing;
 
     private final Map<Short, String> _eventQueriesBySource;
-    private final Map<Short, String> _eventChunkedScnQueriesBySource;
-    private final Map<Short, String> _eventChunkedTxnQueriesBySource;
+//    private final Map<Short, String> _eventChunkedScnQueriesBySource;
+//    private final Map<Short, String> _eventChunkedTxnQueriesBySource;
 
-    private PreparedStatement _txnChunkJumpScnStmt;
+    static private final String NR_OGG_SRC_TRNS_CSN = "NR_OGG_SRC_TRNS_CSN";
+    static private final String TS_OGG_SRC_TRNS_COMMIT = "TS_OGG_SRC_TRNS_COMMIT";
+
+//    private PreparedStatement _txnChunkJumpScnStmt;
 
     /**
      * Logger for error and debug messages.
@@ -77,7 +79,7 @@ public class OracleJournalEventReader
     private final DbusEventsStatisticsCollector _relayInboundStatsCollector;
     private final MaxSCNWriter _maxScnWriter;
     private long _lastquerytime;
-    private long _lastMaxScnTime;
+//    private long _lastMaxScnTime;
     private final long _slowQuerySourceThreshold;
 
     private final ChunkingType _chunkingType;
@@ -88,8 +90,8 @@ public class OracleJournalEventReader
 
     private long _lastSeenEOP = EventReaderSummary.NO_EVENTS_SCN;
 
-    private volatile boolean _inChunkingMode = false;
-    private volatile long _catchupTargetMaxScn = -1L;
+    //private volatile boolean _inChunkingMode = false;
+    //private volatile long _catchupTargetMaxScn = -1L;
 
 
     public OracleJournalEventReader(String name,
@@ -147,23 +149,23 @@ public class OracleJournalEventReader
             _eventQueriesBySource.put(sourceInfo.getSourceId(), eventQuery);
         }
 
-        _eventChunkedTxnQueriesBySource = new HashMap<Short, String>();
-        for (OracleTriggerMonitoredSourceInfo sourceInfo : sources) {
-            String eventQuery = generateTxnChunkedQuery(sourceInfo, _selectSchema);
-            _log.info("Generated Chunked Txn events query. source: " + sourceInfo + " ; chunkTxnEventQuery: " + eventQuery);
-            _eventChunkedTxnQueriesBySource.put(sourceInfo.getSourceId(), eventQuery);
-        }
+//        _eventChunkedTxnQueriesBySource = new HashMap<Short, String>();
+//        for (OracleTriggerMonitoredSourceInfo sourceInfo : sources) {
+//            String eventQuery = generateTxnChunkedQuery(sourceInfo, _selectSchema);
+//            _log.info("Generated Chunked Txn events query. source: " + sourceInfo + " ; chunkTxnEventQuery: " + eventQuery);
+//            _eventChunkedTxnQueriesBySource.put(sourceInfo.getSourceId(), eventQuery);
+//        }
 
-        _eventChunkedScnQueriesBySource = new HashMap<Short, String>();
-        for (OracleTriggerMonitoredSourceInfo sourceInfo : sources) {
-            String eventQuery = generateScnChunkedQuery(sourceInfo);
-            _log.info("Generated Chunked Scn events query. source: " + sourceInfo + " ; chunkScnEventQuery: " + eventQuery);
-            _eventChunkedScnQueriesBySource.put(sourceInfo.getSourceId(), eventQuery);
-        }
+//        _eventChunkedScnQueriesBySource = new HashMap<Short, String>();
+//        for (OracleTriggerMonitoredSourceInfo sourceInfo : sources) {
+//            String eventQuery = generateScnChunkedQuery(sourceInfo);
+//            _log.info("Generated Chunked Scn events query. source: " + sourceInfo + " ; chunkScnEventQuery: " + eventQuery);
+//            _eventChunkedScnQueriesBySource.put(sourceInfo.getSourceId(), eventQuery);
+//        }
     }
 
     @Override
-    public ReadEventCycleSummary readEventsFromAllSources(long sinceSCN)
+    public ReadEventCycleSummary readEventsFromAllSources (long sinceSCN)
             throws DatabusException, EventCreationException, UnsupportedKeyException {
         boolean eventBufferNeedsRollback = true;
         boolean debugEnabled = _log.isDebugEnabled();
@@ -178,50 +180,8 @@ public class OracleJournalEventReader
                 resetConnections();
             }
 
-            /**
-             * Chunking in Relay:
-             * =================
-             *
-             *  Variables used:
-             *  ===============
-             *
-             *  1. _inChunking : Flag to indicate if the relay is in chunking mode
-             *  2. _chunkingType : Type of chunking supported
-             *  3. _chunkedScnThreshold :
-             *               The threshold Scn diff which triggers chunking. If the relay's maxScn is older
-             *               than DB's maxScn by this threshold, then chunking will be enabled.
-             *  4. _txnsPerChunk : Chunk size of txns for txn based chunking.
-             *  5. _scnChunkSize : Chunk Size for scn based chunking.
-             *  6. _catchupTargetMaxScn : Cached copy of DB's maxScn used as chunking's target SCN.
-             *
-             *  =========================================
-             *  Behavior of Chunking for Slow Sources:
-             *  =========================================
-             *
-             *  The slow sources case that is illustrated here is when all the sources in the sourcesList (fetched by relay) is slow.
-             *  In this case, the endOfPeriodSCN will not increase on its own whereas in all other cases, it will.
-             *
-             *  At startup, if the _catchupTargetMaxScn - currScn > _chunkedScnThreshold, then chunking is enabled.
-             *  1. Txn_based_chunking
-             *
-             *    a) If chunking is on at startup, then txn-based chunking query is used. Otherwise, regular query is used.
-             *    b) For a period till SLOW_SOURCE_QUERY_THRESHOLD msec, the endOfPeriodSCN/SinceSCN will not increase.
-             *    c) After SLOW_SOURCE_QUERY_THRESHOLD msec, the sinceScn/endOfPeriodSCN will be increased to current MaxScn. If chunking was previously enabled
-             *        at this time, it will be disabled upto MAX_SCN_DELAY_MS msec after which _catchupTargetMaxScn will be refreshed.
-             *    d) if the new _catchupTargetMaxScn - currScn > _chunkedScnThreshold, then chunking is again enabled.
-             *    e) go to (b)
-             *
-             *  2. SCN based Chunking
-             *    a) If chunking is on at startup, then scn-based chunking query is used. Otherwise, regular query is used.
-             *    b) For a period till SLOW_SOURCE_QUERY_THRESHOLD msec, the endOfPeriodSCN/SinceSCN keep increasing by _scnChunkSize with no rows fetched.
-             *    c) When _catchupTargetMaxScn - endOfPeriodSCN <  _chunkedScnThreshold, then chunking is disabled and regular query kicks in and in this
-             *       phase sinceSCN/endOfPeriodSCN will not increase. After MAX_SCN_DELAY_MS interval, _catchupTargetSCN will be refreshed.
-             *    d) If the new _catchupTargetMaxScn - currScn > _chunkedScnThreshold, then SCN chunking is again enabled.
-             *    e) go to (b)       *
-             *
-             */
             if (sinceSCN <= 0) {
-                _catchupTargetMaxScn = sinceSCN = getMaxTxlogSCN(_eventSelectConnection);
+                sinceSCN = 1;
                 _log.debug("sinceSCN was <= 0. Overriding with the current max SCN=" + sinceSCN);
                 _eventBuffer.setStartSCN(sinceSCN);
                 try {
@@ -229,13 +189,9 @@ public class OracleJournalEventReader
                 } catch (SQLException s) {
                     DBHelper.rollback(_eventSelectConnection);
                 }
-            } else if ((_chunkingType.isChunkingEnabled()) && (_catchupTargetMaxScn <= 0)) {
-                _catchupTargetMaxScn = getMaxTxlogSCN(_eventSelectConnection);
-                _log.debug("catchupTargetMaxScn was <= 0. Overriding with the current max SCN=" + _catchupTargetMaxScn);
             }
 
-            if (_catchupTargetMaxScn <= 0)
-                _inChunkingMode = false;
+            //_inChunkingMode = false;
 
             // Get events for each source
             List<OracleTriggerMonitoredSourceInfo> filteredSources = filterSources(sinceSCN);
@@ -275,34 +231,14 @@ public class OracleJournalEventReader
             long curtime = System.currentTimeMillis();
             if (endOfPeriodScn == EventReaderSummary.NO_EVENTS_SCN) {
 
-                // If in SCN Chunking mode, its possible to get empty batches for a SCN range,
-                if ((sinceSCN + _scnChunkSize <= _catchupTargetMaxScn) &&
-                        (ChunkingType.SCN_CHUNKING == _chunkingType)) {
-                    endOfPeriodScn = sinceSCN + _scnChunkSize;
-                    _lastquerytime = curtime;
-                } else if (ChunkingType.TXN_CHUNKING == _chunkingType && _inChunkingMode) {
-                    long nextBatchScn = getMaxScnSkippedForTxnChunked(_eventSelectConnection, sinceSCN, _txnsPerChunk);
-                    _log.info("No events while in txn chunking. CurrScn : " + sinceSCN + ", jumping to :" + nextBatchScn);
-                    endOfPeriodScn = nextBatchScn;
-                    _lastquerytime = curtime;
-                } else if ((curtime - _lastquerytime) > _slowQuerySourceThreshold) {
-                    _lastquerytime = curtime;
-                    //get new start scn for subsequent calls;
-                    final long maxTxlogSCN = getMaxTxlogSCN(_eventSelectConnection);
-                    //For performance reasons, getMaxTxlogSCN() returns the max scn only among txlog rows
-                    //which have their scn rewritten (i.e. scn < infinity). This allows the getMaxTxlogSCN
-                    //query to be evaluated using only the SCN index. Getting the true max SCN requires
-                    //scanning the rows where scn == infinity which is expensive.
-                    //On the other hand, readEventsFromOneSource will read the latter events. So it is
-                    //possible that maxTxlogSCN < scn of the last event in the buffer!
-                    //We use max() to guarantee that there are no SCN regressions.
-                    endOfPeriodScn = Math.max(maxTxlogSCN, sinceSCN);
-                    _log.info("SlowSourceQueryThreshold hit. currScn : " + sinceSCN +
-                            ". Advanced endOfPeriodScn to " + endOfPeriodScn +
-                            " and added the event to relay");
-                    if (debugEnabled) {
-                        _log.debug("No events processed. Read max SCN from txlog table for endOfPeriodScn. endOfPeriodScn=" + endOfPeriodScn);
-                    }
+                //get new start scn for subsequent calls;
+                final long maxTxlogSCN = sinceSCN;
+                endOfPeriodScn = Math.max(maxTxlogSCN, sinceSCN);
+                _log.info("SlowSourceQueryThreshold hit. currScn : " + sinceSCN +
+                        ". Advanced endOfPeriodScn to " + endOfPeriodScn +
+                        " and added the event to relay");
+                if (debugEnabled) {
+                    _log.debug("No events processed. Read max SCN from txlog table for endOfPeriodScn. endOfPeriodScn=" + endOfPeriodScn);
                 }
 
                 if (endOfPeriodScn != EventReaderSummary.NO_EVENTS_SCN && endOfPeriodScn > sinceSCN) {
@@ -315,7 +251,6 @@ public class OracleJournalEventReader
                 }
             } else {
                 //we have appended some events; and a new end of period has been found
-                _lastquerytime = curtime;
                 _eventBuffer.endEvents(endOfPeriodScn, _relayInboundStatsCollector);
                 if (debugEnabled) {
                     _log.debug("End of events: " + endOfPeriodScn + " windown range= "
@@ -339,25 +274,25 @@ public class OracleJournalEventReader
             long cycleEndTS = System.currentTimeMillis();
 
             //check if we should refresh _catchupTargetMaxScn
-            if (_chunkingType.isChunkingEnabled() &&
-                    (_lastSeenEOP >= _catchupTargetMaxScn) &&
-                    (curtime - _lastMaxScnTime >= _maxScnDelayMs)) {
-                //reset it to -1 so it gets refreshed next time around
-                _catchupTargetMaxScn = -1;
-            }
+//            if (_chunkingType.isChunkingEnabled() &&
+//                    (_lastSeenEOP >= _catchupTargetMaxScn) &&
+//                    (curtime - _lastMaxScnTime >= _maxScnDelayMs)) {
+//                //reset it to -1 so it gets refreshed next time around
+//                _catchupTargetMaxScn = -1;
+//            }
 
-            boolean chunkMode = _chunkingType.isChunkingEnabled() &&
-                    (_catchupTargetMaxScn > 0) &&
-                    (_lastSeenEOP < _catchupTargetMaxScn);
+//            boolean chunkMode = _chunkingType.isChunkingEnabled() &&
+//                    (_catchupTargetMaxScn > 0) &&
+//                    (_lastSeenEOP < _catchupTargetMaxScn);
 
-            if (!chunkMode && _inChunkingMode)
-                _log.info("Disabling chunking for sources !!");
-
-            _inChunkingMode = chunkMode;
-
-            if (_inChunkingMode && debugEnabled)
-                _log.debug("_inChunkingMode = true, _catchupTargetMaxScn=" + _catchupTargetMaxScn
-                        + ", endOfPeriodScn=" + endOfPeriodScn + ", _lastSeenEOP=" + _lastSeenEOP);
+//            if (!chunkMode && _inChunkingMode)
+//                _log.info("Disabling chunking for sources !!");
+//
+//            _inChunkingMode = chunkMode;
+//
+//            if (_inChunkingMode && debugEnabled)
+//                _log.debug("_inChunkingMode = true, _catchupTargetMaxScn=" + _catchupTargetMaxScn
+//                        + ", endOfPeriodScn=" + endOfPeriodScn + ", _lastSeenEOP=" + _lastSeenEOP);
 
             ReadEventCycleSummary summary = new ReadEventCycleSummary(_name, summaries,
                     Math.max(endOfPeriodScn, sinceSCN),
@@ -373,7 +308,6 @@ public class OracleJournalEventReader
             } catch (SQLException s) {
                 throw new DatabusException(s.getMessage());
             }
-            ;
 
             handleExceptionInReadEvents(ex);
             throw new DatabusException(ex);
@@ -397,9 +331,8 @@ public class OracleJournalEventReader
 
         _eventSelectConnection = null;
 
-        // If not in chunking mode, resetting _catchupTargetMaxScn may enforce chunking mode to overcome ORA-1555 if this was the reason for exception
-        if ((!_inChunkingMode) && (_chunkingType.isChunkingEnabled()))
-            _catchupTargetMaxScn = -1;
+//        // If not in chunking mode, resetting _catchupTargetMaxScn may enforce chunking mode to overcome ORA-1555 if this was the reason for exception
+//        _catchupTargetMaxScn = -1;
 
         _log.error("readEventsFromAllSources exception:" + e.getMessage(), e);
         for (OracleTriggerMonitoredSourceInfo source : _sources) {
@@ -411,62 +344,44 @@ public class OracleJournalEventReader
     private PreparedStatement createQueryStatement(Connection conn,
                                                    OracleTriggerMonitoredSourceInfo source,
                                                    long sinceScn,
-                                                   int currentFetchSize,
-                                                   boolean useChunking)
+                                                   int currentFetchSize)
             throws SQLException {
         boolean debugEnabled = _log.isDebugEnabled();
         String eventQuery = null;
         ChunkingType type = _chunkingType;
 
-        if (!useChunking || (!type.isChunkingEnabled())) {
-            eventQuery = _eventQueriesBySource.get(source.getSourceId());
-        } else {
-            if (type == ChunkingType.SCN_CHUNKING)
-                eventQuery = _eventChunkedScnQueriesBySource.get(source.getSourceId());
-            else
-                eventQuery = _eventChunkedTxnQueriesBySource.get(source.getSourceId());
-        }
+        eventQuery = _eventQueriesBySource.get(source.getSourceId());
 
         if (debugEnabled) _log.debug("source[" + source.getEventView() + "]: " + eventQuery +
                 "; skipInfinityScn=" + source.isSkipInfinityScn() + " ; sinceScn=" + sinceScn);
 
         PreparedStatement pStmt = conn.prepareStatement(eventQuery);
-        if (!useChunking || (!type.isChunkingEnabled())) {
-            pStmt.setFetchSize(currentFetchSize);
-            pStmt.setLong(1, sinceScn);
-            if (!source.isSkipInfinityScn()) pStmt.setLong(2, sinceScn);
-        } else {
-            int i = 1;
-            pStmt.setLong(i++, sinceScn);
-            pStmt.setLong(i++, sinceScn);
 
-            if (ChunkingType.TXN_CHUNKING == type) {
-                pStmt.setLong(i++, _txnsPerChunk);
-            } else {
-                long untilScn = sinceScn + _scnChunkSize;
-                _log.info("SCN chunking mode, next target SCN is: " + untilScn);
-                pStmt.setLong(i++, untilScn);
-            }
-        }
+        pStmt.setFetchSize(currentFetchSize);
+        pStmt.setLong(1, sinceScn);
+
+        if (!source.isSkipInfinityScn())
+            pStmt.setLong(2, sinceScn);
+
         return pStmt;
     }
 
     private EventReaderSummary readEventsFromOneSource(Connection con, OracleTriggerMonitoredSourceInfo source, long sinceScn)
             throws SQLException, UnsupportedKeyException, EventCreationException {
-        boolean useChunking = false; // do not use chunking by default
+        //boolean useChunking = false; // do not use chunking by default
 
-        if (_chunkingType.isChunkingEnabled()) {
-            // use the upper bound for chunking if not caught up yet
-            useChunking = (sinceScn + _chunkedScnThreshold <= _catchupTargetMaxScn);
-            if (useChunking && !_inChunkingMode)
-                _log.info("Enabling chunking for sources !!");
+//        if (_chunkingType.isChunkingEnabled()) {
+//            // use the upper bound for chunking if not caught up yet
+//            useChunking = (sinceScn + _chunkedScnThreshold <= _catchupTargetMaxScn);
+//            if (useChunking && !_inChunkingMode)
+//                _log.info("Enabling chunking for sources !!");
+//
+//            _log.debug("SinceScn :" + sinceScn + ", _ChunkedScnThreshold :"
+//                    + _chunkedScnThreshold + ", _catchupTargetMaxScn:" + _catchupTargetMaxScn
+//                    + ", useChunking :" + useChunking);
+//        }
 
-            _log.debug("SinceScn :" + sinceScn + ", _ChunkedScnThreshold :"
-                    + _chunkedScnThreshold + ", _catchupTargetMaxScn:" + _catchupTargetMaxScn
-                    + ", useChunking :" + useChunking);
-        }
-
-        _inChunkingMode = _inChunkingMode || useChunking;
+        //_inChunkingMode = _inChunkingMode || useChunking;
 
         PreparedStatement pstmt = null;
         ResultSet rs = null;
@@ -477,7 +392,7 @@ public class OracleJournalEventReader
         try {
             long startTS = System.currentTimeMillis();
             long totalEventSerializeTime = 0;
-            pstmt = createQueryStatement(con, source, sinceScn, currentFetchSize, useChunking);
+            pstmt = createQueryStatement(con, source, sinceScn, currentFetchSize);
 
             long t = System.currentTimeMillis();
             rs = pstmt.executeQuery();
@@ -516,9 +431,9 @@ public class OracleJournalEventReader
             }
             long endTS = System.currentTimeMillis();
 
-            if (_inChunkingMode && (ChunkingType.TXN_CHUNKING == _chunkingType)) {
-                _log.info("txn chunking mode: since=" + sinceScn + " eop=" + endOfPeriodSCN);
-            }
+//            if (_inChunkingMode && (ChunkingType.TXN_CHUNKING == _chunkingType)) {
+//                _log.info("txn chunking mode: since=" + sinceScn + " eop=" + endOfPeriodSCN);
+//            }
 
             // Build the event summary and return
             EventReaderSummary summary = new EventReaderSummary(source.getSourceId(), source.getSourceName(),
@@ -562,166 +477,133 @@ public class OracleJournalEventReader
         StringJoiner pks = new StringJoiner(" and ");
         List<String> primaryKeys = sourceInfo.getPrimaryKeys();
         for (String primaryKey : primaryKeys) {
-            pks.add("src." + primaryKey + "=j." + primaryKey);
+            pks.add("src." + primaryKey + "=j." + primaryKey + " ");
         }
 
-        StringBuilder sql = new StringBuilder();
-        sql.append("select ");
-
-        sql.append(" j.window_id scn, src.* ");
-        sql.append("from ");
-        sql.append(selectSchema).append(sourceInfo.getEventView()).append(" src, ");
-        sql.append(selectSchema + "j$" + sourceInfo.getEventView() + " j ");
-        sql.append("where ");
-        sql.append(pks.toString());
-
-        return sql.toString();
-    }
-
-    /**
-     * TXN Chunking Query
-     * <p/>
-     * Query to select a chunk of rows by txn ids.
-     * This query goes hand-in-hand with getMaxScnSkippedForTxnChunked.
-     * You would need to change the  getMaxScnSkippedForTxnChunked query when you change this query
-     *
-     * @param sourceInfo Source Info for which chunk query is needed
-     * @return
-     */
-    static String generateTxnChunkedQuery(OracleTriggerMonitoredSourceInfo sourceInfo, String selectSchema) {
-        StringBuilder sql = new StringBuilder();
-
-        sql.append("SELECT scn, event_timestamp, src.* ");
-        sql.append("FROM ").append(selectSchema).append("sy$").append(sourceInfo.getEventView()).append(" src, ");
-        sql.append("( SELECT ");
-        String hints = sourceInfo.getEventTxnChunkedQueryHints();
-        sql.append(hints).append(" "); // hint for oracle
-
-        sql.append(selectSchema + "sync_core.getScn(tx.scn, tx.ora_rowscn) scn, tx.ts event_timestamp, ");
-        sql.append("tx.txn, row_number() OVER (ORDER BY TX.SCN) r ");
-        sql.append("FROM ").append(selectSchema + "sy$txlog tx ");
-        sql.append("WHERE tx.scn > ? AND tx.ora_rowscn > ? AND tx.scn < 9999999999999999999999999999) t ");
-        sql.append("WHERE src.txn = t.txn AND r<= ? ");
-        sql.append("ORDER BY r ");
-
-        return sql.toString();
-    }
-
-
-    static String generateScnChunkedQuery(OracleTriggerMonitoredSourceInfo sourceInfo) {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT ");
-        String hints = sourceInfo.getEventScnChunkedQueryHints();
-        sql.append(hints).append(" "); // hint for oracle
-        sql.append("sync_core.getScn(tx.scn, tx.ora_rowscn) scn, tx.ts event_timestamp, src.* ");
-        sql.append("FROM sy$").append(sourceInfo.getEventView()).append(" src, sy$txlog tx ");
-        sql.append("WHERE src.txn=tx.txn AND tx.scn > ? AND tx.ora_rowscn > ? AND ");
-        sql.append(" tx.ora_rowscn <= ?");
+
+        sql.append("src." + NR_OGG_SRC_TRNS_CSN + " as scn, ");
+        sql.append("src." + TS_OGG_SRC_TRNS_COMMIT + " as event_timestamp, ");
+        sql.append("src.* ");
+        sql.append("FROM ");
+        sql.append(selectSchema).append(sourceInfo.getEventView()).append(" src, ");
+        sql.append(sourceInfo.getJournalTable() + " j ");
+        sql.append("WHERE ");
+        if (pks.length() > 0) {
+            sql.append(pks.toString() + " and ");
+        }
+        sql.append("src." + NR_OGG_SRC_TRNS_CSN + " > ? and src."  + NR_OGG_SRC_TRNS_CSN + " < 9999999999999999999999999999 ");
+        sql.append("ORDER BY event_timestamp");
 
         return sql.toString();
     }
 
 
-    private long getMaxScnSkippedForTxnChunked(Connection db, long currScn, long txnsPerChunk)
-            throws SQLException {
-        // Generate the PreparedStatement and cache it in a member variable.
-        // Owned by the object, hence do not close it
-        generateMaxScnSkippedForTxnChunkedQuery(db);
-        PreparedStatement stmt = _txnChunkJumpScnStmt;
-        long retScn = currScn;
-        if (_log.isDebugEnabled())
-            _log.debug("Executing MaxScnSkippedForTxnChunked query with currScn :" + currScn + " and txnsPerChunk :" + txnsPerChunk);
-        ResultSet rs = null;
-        try {
-            stmt.setLong(1, currScn);
-            stmt.setLong(2, txnsPerChunk);
-            rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                long scnFromQuery = rs.getLong(1);
-                if (scnFromQuery == 0) {
-                    if (_log.isDebugEnabled())
-                        _log.debug("Ignoring SCN obtained from txn chunked query as there may be no update. currScn = " + currScn + " scnFromQuery = " + scnFromQuery);
-                } else if (scnFromQuery < currScn) {
-                    _log.error("ERROR: SCN obtained from txn chunked query is less than currScn. currScn = " + currScn + " scnFromQuery = " + scnFromQuery);
-                } else {
-                    retScn = rs.getLong(1);
-                }
-            }
-        } finally {
-            DBHelper.close(rs);
-        }
-        return retScn;
-    }
+//    /**
+//     * TXN Chunking Query
+//     * <p/>
+//     * Query to select a chunk of rows by txn ids.
+//     * This query goes hand-in-hand with getMaxScnSkippedForTxnChunked.
+//     * You would need to change the  getMaxScnSkippedForTxnChunked query when you change this query
+//     *
+//     * @param sourceInfo Source Info for which chunk query is needed
+//     * @return
+//     */
+//    static String generateTxnChunkedQuery(OracleTriggerMonitoredSourceInfo sourceInfo, String selectSchema) {
+//        StringBuilder sql = new StringBuilder();
+//
+//        sql.append("SELECT scn, event_timestamp, src.* ");
+//        sql.append("FROM ").append(selectSchema).append("sy$").append(sourceInfo.getEventView()).append(" src, ");
+//        sql.append("( SELECT ");
+//        String hints = sourceInfo.getEventTxnChunkedQueryHints();
+//        sql.append(hints).append(" "); // hint for oracle
+//
+//        sql.append(selectSchema + "sync_core.getScn(tx.scn, tx.ora_rowscn) scn, tx.ts event_timestamp, ");
+//        sql.append("tx.txn, row_number() OVER (ORDER BY TX.SCN) r ");
+//        sql.append("FROM ").append(selectSchema + "sy$txlog tx ");
+//        sql.append("WHERE tx.scn > ? AND tx.ora_rowscn > ? AND tx.scn < 9999999999999999999999999999) t ");
+//        sql.append("WHERE src.txn = t.txn AND r<= ? ");
+//        sql.append("ORDER BY r ");
+//
+//        return sql.toString();
+//    }
 
 
-    /**
-     * Max SCN Query for TXN Chunking.
-     * <p/>
-     * When no rows are returned for a given chunk of txns, this query is used to find the beginning of the next batch.
-     * <p/>
-     * This query goes hand-in-hand with generateTxnChunkedQuery.
-     * You would need to change this query when you change generateTxnChunkedQuery query.
-     *
-     * @param db Connection instance
-     * @return None
-     */
-    private void generateMaxScnSkippedForTxnChunkedQuery(Connection db)
-            throws SQLException {
-        if (null == _txnChunkJumpScnStmt) {
-            StringBuilder sql = new StringBuilder();
+//    static String generateScnChunkedQuery(OracleTriggerMonitoredSourceInfo sourceInfo) {
+//        StringBuilder sql = new StringBuilder();
+//        sql.append("SELECT ");
+//        String hints = sourceInfo.getEventScnChunkedQueryHints();
+//        sql.append(hints).append(" "); // hint for oracle
+//        sql.append("sync_core.getScn(tx.scn, tx.ora_rowscn) scn, tx.ts event_timestamp, src.* ");
+//        sql.append("FROM sy$").append(sourceInfo.getEventView()).append(" src, sy$txlog tx ");
+//        sql.append("WHERE src.txn=tx.txn AND tx.scn > ? AND tx.ora_rowscn > ? AND ");
+//        sql.append(" tx.ora_rowscn <= ?");
+//
+//        return sql.toString();
+//    }
 
-            sql.append("SELECT max(t.scn) from (");
-            sql.append("select /*+ index(tx) */ tx.scn, row_number() OVER (ORDER BY tx.scn) r FROM ");
-            sql.append(_selectSchema + "sy$txlog tx ");
-            sql.append("WHERE tx.scn >  ? AND tx.scn < 9999999999999999999999999999) t ");
-            sql.append("WHERE r <= ?");
 
-            _txnChunkJumpScnStmt = db.prepareStatement(sql.toString());
-        }
+//    private long getMaxScnSkippedForTxnChunked(Connection db, long currScn, long txnsPerChunk)
+//            throws SQLException {
+//        // Generate the PreparedStatement and cache it in a member variable.
+//        // Owned by the object, hence do not close it
+//        generateMaxScnSkippedForTxnChunkedQuery(db);
+//        PreparedStatement stmt = _txnChunkJumpScnStmt;
+//        long retScn = currScn;
+//        if (_log.isDebugEnabled())
+//            _log.debug("Executing MaxScnSkippedForTxnChunked query with currScn :" + currScn + " and txnsPerChunk :" + txnsPerChunk);
+//        ResultSet rs = null;
+//        try {
+//            stmt.setLong(1, currScn);
+//            stmt.setLong(2, txnsPerChunk);
+//            rs = stmt.executeQuery();
+//
+//            if (rs.next()) {
+//                long scnFromQuery = rs.getLong(1);
+//                if (scnFromQuery == 0) {
+//                    if (_log.isDebugEnabled())
+//                        _log.debug("Ignoring SCN obtained from txn chunked query as there may be no update. currScn = " + currScn + " scnFromQuery = " + scnFromQuery);
+//                } else if (scnFromQuery < currScn) {
+//                    _log.error("ERROR: SCN obtained from txn chunked query is less than currScn. currScn = " + currScn + " scnFromQuery = " + scnFromQuery);
+//                } else {
+//                    retScn = rs.getLong(1);
+//                }
+//            }
+//        } finally {
+//            DBHelper.close(rs);
+//        }
+//        return retScn;
+//    }
 
-        return;
-    }
 
-    /**
-     * Returns the max SCN from the sy$txlog table
-     *
-     * @param db
-     * @return the max scn
-     * @throws SQLException
-     */
-    private long getMaxTxlogSCN(Connection db) throws SQLException {
-        _lastMaxScnTime = System.currentTimeMillis();
-        long maxScn = EventReaderSummary.NO_EVENTS_SCN;
-
-        String sql = "select " +
-                "max(scn)" +
-                "from " + _selectSchema + "sy$txlog where " +
-                "scn < 9999999999999999999999999999";
-
-        if (_log.isDebugEnabled()) _log.debug(sql);
-
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-
-        try {
-            pstmt = db.prepareStatement(sql);
-            rs = pstmt.executeQuery();
-
-            if (rs.next()) {
-                long testScn = rs.getLong(1);
-                if (testScn != 0) {
-                    maxScn = testScn;
-                }
-            }
-        } finally {
-            DBHelper.close(rs, pstmt, null);
-        }
-
-        if (_log.isDebugEnabled()) _log.debug("MaxSCN Query :" + sql + ", MaxSCN :" + maxScn);
-
-        return maxScn;
-    }
+//    /**
+//     * Max SCN Query for TXN Chunking.
+//     * <p/>
+//     * When no rows are returned for a given chunk of txns, this query is used to find the beginning of the next batch.
+//     * <p/>
+//     * This query goes hand-in-hand with generateTxnChunkedQuery.
+//     * You would need to change this query when you change generateTxnChunkedQuery query.
+//     *
+//     * @param db Connection instance
+//     * @return None
+//     */
+//    private void generateMaxScnSkippedForTxnChunkedQuery(Connection db)
+//            throws SQLException {
+//        if (null == _txnChunkJumpScnStmt) {
+//            StringBuilder sql = new StringBuilder();
+//
+//            sql.append("SELECT max(t.scn) from (");
+//            sql.append("select /*+ index(tx) */ tx.scn, row_number() OVER (ORDER BY tx.scn) r FROM ");
+//            sql.append(_selectSchema + "sy$txlog tx ");
+//            sql.append("WHERE tx.scn >  ? AND tx.scn < 9999999999999999999999999999) t ");
+//            sql.append("WHERE r <= ?");
+//
+//            _txnChunkJumpScnStmt = db.prepareStatement(sql.toString());
+//        }
+//
+//        return;
+//    }
 
     @Override
     public List<OracleTriggerMonitoredSourceInfo> getSources() {
@@ -732,7 +614,7 @@ public class OracleJournalEventReader
         if (null != _eventSelectConnection) DBHelper.close(_eventSelectConnection);
     }
 
-    public void setCatchupTargetMaxScn(long catchupTargetMaxScn) {
-        _catchupTargetMaxScn = catchupTargetMaxScn;
-    }
+//    public void setCatchupTargetMaxScn(long catchupTargetMaxScn) {
+//        _catchupTargetMaxScn = catchupTargetMaxScn;
+//    }
 }

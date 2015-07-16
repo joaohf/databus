@@ -22,6 +22,7 @@ package com.linkedin.databus.bootstrap.utils;
 import java.sql.ResultSet;
 import java.util.List;
 
+import com.linkedin.databus2.core.DatabusException;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.log4j.Logger;
@@ -51,7 +52,7 @@ public class BootstrapSeederOracleAvroGenericEventFactory extends
 			short pSourceId, String eventSchema,
 			PartitionFunction partitionFunction,
 			String seederChunkKeyColumnName,
-			ReplicationBitSetterStaticConfig replSetterConfig) throws EventCreationException,
+			ReplicationBitSetterStaticConfig replSetterConfig) throws DatabusException, EventCreationException,
 			UnsupportedKeyException {
 		super(sourceId, pSourceId, eventSchema, partitionFunction,replSetterConfig);
 	    List<Field> fields = _eventSchema.getFields();

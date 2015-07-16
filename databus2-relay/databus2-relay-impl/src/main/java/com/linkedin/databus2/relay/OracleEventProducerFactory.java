@@ -151,7 +151,7 @@ public class OracleEventProducerFactory
   protected OracleAvroGenericEventFactory createEventFactory( String eventViewSchema, String eventView,
 		                                                      LogicalSourceStaticConfig sourceConfig, PhysicalSourceStaticConfig pConfig,
           													  String eventSchema, PartitionFunction partitionFunction)
-      throws EventCreationException, UnsupportedKeyException
+      throws DatabusException, EventCreationException, UnsupportedKeyException
   {
 	  return new OracleAvroGenericEventFactory(sourceConfig.getId(), (short)pConfig.getId(),
               eventSchema, partitionFunction,pConfig.getReplBitSetter());
@@ -176,9 +176,11 @@ public class OracleEventProducerFactory
 
     _log.info("Loading schema for source id " + sourceConfig.getId() + ": " + schema);
 
-
+    String journalSchemaTemplate;
     String eventViewSchema;
     String eventView;
+
+    journalSchemaTemplate = pConfig.getJournalSchemaTemplate();
 
     if(sourceConfig.getUri().indexOf('.') != -1)
     {
@@ -206,7 +208,7 @@ public class OracleEventProducerFactory
     OracleTriggerMonitoredSourceInfo sourceInfo = new OracleTriggerMonitoredSourceInfo(sourceConfig.getId(),
                                                              sourceConfig.getName(),
                                                              eventViewSchema,
-                                                             eventView, factory,
+                                                             eventView, journalSchemaTemplate, factory,
                                                              statisticsBean,
                                                              sourceConfig.getRegularQueryHints(),
                                                              sourceConfig.getChunkedTxnQueryHints(),

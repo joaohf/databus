@@ -50,8 +50,10 @@ import com.linkedin.databus.core.DbusEventBufferAppendable;
 import com.linkedin.databus.core.DbusEventKey;
 import com.linkedin.databus.core.UnsupportedKeyException;
 import com.linkedin.databus.core.monitoring.mbean.DbusEventsStatisticsCollector;
+import com.linkedin.databus2.core.DatabusException;
 import com.linkedin.databus2.producers.EventCreationException;
 import com.linkedin.databus2.producers.PartitionFunction;
+import com.linkedin.databus2.producers.ds.PrimaryKeySchema;
 import com.linkedin.databus2.relay.OracleJarUtils;
 import com.linkedin.databus2.relay.config.ReplicationBitSetterStaticConfig;
 import com.linkedin.databus2.relay.config.ReplicationBitSetterStaticConfig.SourceType;
@@ -89,6 +91,9 @@ implements EventFactory
   /** key column name. */
   protected String keyColumnName = "key";
 
+  /** key Schema. */
+  private final PrimaryKeySchema _pKeySchema;
+
   /** Replication BitSetter StaticConfig **/
   private final ReplicationBitSetterStaticConfig _replSetterConfig;
 
@@ -100,7 +105,7 @@ implements EventFactory
   public OracleAvroGenericEventFactory(short sourceId, short pSourceId,
                                        String eventSchema, PartitionFunction partitionFunction,
                                        ReplicationBitSetterStaticConfig replSetterConfig)
-  throws EventCreationException, UnsupportedKeyException
+  throws DatabusException, EventCreationException, UnsupportedKeyException
   {
     // TODO: Constructor should validate that eventSchema has all required metadata
     _sourceId = sourceId;
@@ -116,12 +121,13 @@ implements EventFactory
     else
       _replBitSetterPattern = null;
 
-    String keyNameOverride = SchemaHelper.getMetaField(_eventSchema, "pk");
-    if (null != keyNameOverride)
-    {
-      keyColumnName = keyNameOverride;
-      _log.info(_eventSchema.getFullName() + ": using primary key override:" + keyColumnName);
-    }
+    String keyNames = SchemaHelper.getMetaField(_eventSchema, "pk");
+
+    _pKeySchema = new PrimaryKeySchema(keyNames);
+
+    // get the first primary key
+    keyColumnName = _pKeySchema.getPKeyList().get(0);;
+    _log.info(_eventSchema.getFullName() + ": using primary key override:" + keyColumnName);
 
     // Examine the event schema to determine the proper type of "key". The key must be a
     // String, int, or long data type.
@@ -141,6 +147,12 @@ implements EventFactory
     {
       throw new EventCreationException("The event schema is missing the required field \"key\".");
     }
+
+  }
+
+  public PrimaryKeySchema getPrimaryKeySchema()
+  {
+    return _pKeySchema;
   }
 
   protected byte[] serializeEvent(GenericRecord record,
