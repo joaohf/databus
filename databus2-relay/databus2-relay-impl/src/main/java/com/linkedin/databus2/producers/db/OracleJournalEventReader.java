@@ -273,27 +273,6 @@ public class OracleJournalEventReader
             }
             long cycleEndTS = System.currentTimeMillis();
 
-            //check if we should refresh _catchupTargetMaxScn
-//            if (_chunkingType.isChunkingEnabled() &&
-//                    (_lastSeenEOP >= _catchupTargetMaxScn) &&
-//                    (curtime - _lastMaxScnTime >= _maxScnDelayMs)) {
-//                //reset it to -1 so it gets refreshed next time around
-//                _catchupTargetMaxScn = -1;
-//            }
-
-//            boolean chunkMode = _chunkingType.isChunkingEnabled() &&
-//                    (_catchupTargetMaxScn > 0) &&
-//                    (_lastSeenEOP < _catchupTargetMaxScn);
-
-//            if (!chunkMode && _inChunkingMode)
-//                _log.info("Disabling chunking for sources !!");
-//
-//            _inChunkingMode = chunkMode;
-//
-//            if (_inChunkingMode && debugEnabled)
-//                _log.debug("_inChunkingMode = true, _catchupTargetMaxScn=" + _catchupTargetMaxScn
-//                        + ", endOfPeriodScn=" + endOfPeriodScn + ", _lastSeenEOP=" + _lastSeenEOP);
-
             ReadEventCycleSummary summary = new ReadEventCycleSummary(_name, summaries,
                     Math.max(endOfPeriodScn, sinceSCN),
                     (cycleEndTS - cycleStartTS));
@@ -348,40 +327,22 @@ public class OracleJournalEventReader
             throws SQLException {
         boolean debugEnabled = _log.isDebugEnabled();
         String eventQuery = null;
-        ChunkingType type = _chunkingType;
 
         eventQuery = _eventQueriesBySource.get(source.getSourceId());
 
-        if (debugEnabled) _log.debug("source[" + source.getEventView() + "]: " + eventQuery +
-                "; skipInfinityScn=" + source.isSkipInfinityScn() + " ; sinceScn=" + sinceScn);
+        if (debugEnabled)
+            _log.debug("source[" + source.getEventView() + "]: " + eventQuery + "; sinceScn=" + sinceScn);
 
         PreparedStatement pStmt = conn.prepareStatement(eventQuery);
 
         pStmt.setFetchSize(currentFetchSize);
-        pStmt.setLong(1, sinceScn);
-
-        if (!source.isSkipInfinityScn())
-            pStmt.setLong(2, sinceScn);
+        //pStmt.setLong(1, sinceScn);
 
         return pStmt;
     }
 
     private EventReaderSummary readEventsFromOneSource(Connection con, OracleTriggerMonitoredSourceInfo source, long sinceScn)
             throws SQLException, UnsupportedKeyException, EventCreationException {
-        //boolean useChunking = false; // do not use chunking by default
-
-//        if (_chunkingType.isChunkingEnabled()) {
-//            // use the upper bound for chunking if not caught up yet
-//            useChunking = (sinceScn + _chunkedScnThreshold <= _catchupTargetMaxScn);
-//            if (useChunking && !_inChunkingMode)
-//                _log.info("Enabling chunking for sources !!");
-//
-//            _log.debug("SinceScn :" + sinceScn + ", _ChunkedScnThreshold :"
-//                    + _chunkedScnThreshold + ", _catchupTargetMaxScn:" + _catchupTargetMaxScn
-//                    + ", useChunking :" + useChunking);
-//        }
-
-        //_inChunkingMode = _inChunkingMode || useChunking;
 
         PreparedStatement pstmt = null;
         ResultSet rs = null;
@@ -431,10 +392,6 @@ public class OracleJournalEventReader
             }
             long endTS = System.currentTimeMillis();
 
-//            if (_inChunkingMode && (ChunkingType.TXN_CHUNKING == _chunkingType)) {
-//                _log.info("txn chunking mode: since=" + sinceScn + " eop=" + endOfPeriodSCN);
-//            }
-
             // Build the event summary and return
             EventReaderSummary summary = new EventReaderSummary(source.getSourceId(), source.getSourceName(),
                     endOfPeriodSCN, numRowsFetched,
@@ -474,6 +431,7 @@ public class OracleJournalEventReader
     }
 
     static String generateEventQuery(OracleTriggerMonitoredSourceInfo sourceInfo, String selectSchema) {
+
         StringJoiner pks = new StringJoiner(" and ");
         List<String> primaryKeys = sourceInfo.getPrimaryKeys();
         for (String primaryKey : primaryKeys) {
@@ -482,18 +440,17 @@ public class OracleJournalEventReader
 
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT ");
-
-        sql.append("src." + NR_OGG_SRC_TRNS_CSN + " as scn, ");
-        sql.append("src." + TS_OGG_SRC_TRNS_COMMIT + " as event_timestamp, ");
+        sql.append("src.NR_OGG_SRC_TRNS_CSN as scn, ");
+        sql.append("src.TS_OGG_SRC_TRNS_COMMIT as event_timestamp, ");
         sql.append("src.* ");
         sql.append("FROM ");
         sql.append(selectSchema).append(sourceInfo.getEventView()).append(" src, ");
         sql.append(sourceInfo.getJournalTable() + " j ");
         sql.append("WHERE ");
         if (pks.length() > 0) {
-            sql.append(pks.toString() + " and ");
+            sql.append(pks.toString());
         }
-        sql.append("src." + NR_OGG_SRC_TRNS_CSN + " > ? and src."  + NR_OGG_SRC_TRNS_CSN + " < 9999999999999999999999999999 ");
+        //sql.append("( src.NR_OGG_SRC_TRNS_CSN = 0 or src.NR_OGG_SRC_TRNS_CSN > ? ) ");
         sql.append("ORDER BY event_timestamp");
 
         return sql.toString();

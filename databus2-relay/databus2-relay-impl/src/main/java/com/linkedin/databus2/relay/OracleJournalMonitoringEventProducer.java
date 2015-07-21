@@ -36,6 +36,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.StringJoiner;
 
 public class OracleJournalMonitoringEventProducer extends MonitoringEventProducer {
 
@@ -147,22 +148,26 @@ public class OracleJournalMonitoringEventProducer extends MonitoringEventProduce
 
 	protected String generateEventQuery(OracleTriggerMonitoredSourceInfo sourceInfo)
 	{
-	  /*
-
-       select NR_OGG_SRC_TRNS_CSN as scn, (select count(*) from oggwrk.j$table_xwom_customer) as journal_count
-       from eltggr_wom.table_xwom_customer
-       where NR_OGG_SRC_TRNS_CSN = (select max(NR_OGG_SRC_TRNS_CSN) from eltggr_wom.table_xwom_customer)
-
-	  */
+		StringJoiner pks = new StringJoiner(" and ");
+		List<String> primaryKeys = sourceInfo.getPrimaryKeys();
+		for (String primaryKey : primaryKeys) {
+			pks.add("src." + primaryKey + "=j." + primaryKey + " ");
+		}
 
 		StringBuilder sql_count = new StringBuilder();
 		sql_count.append(" (select count(*) from ").append(sourceInfo.getJournalTable()).append(") ");
 
 		StringBuilder sql = new StringBuilder();
 
-		sql.append("select NR_OGG_SRC_TRNS_CSN as scn, ").append(sql_count).append(" as journal_count");
-		sql.append(" from ").append(_schema).append(sourceInfo.getEventView());
-		sql.append(" where NR_OGG_SRC_TRNS_CSN = (select max(NR_OGG_SRC_TRNS_CSN) from ").append(_schema).append(sourceInfo.getEventView()).append(")");
+		sql.append("SELECT max(NR_OGG_SRC_TRNS_CSN) as scn, ").append(sql_count).append(" as journal_count");
+		sql.append(" FROM ");
+		sql.append(_schema).append(sourceInfo.getEventView()).append(" src, ");
+		sql.append(sourceInfo.getJournalTable() + " j ");
+		sql.append(" WHERE ");
+		if (pks.length() > 0) {
+			sql.append(pks.toString());
+		}
+		sql.append("GROUP BY src.NR_OGG_SRC_TRNS_CSN");
 
 		_log.info("Monitoring Query: " + sql.toString());
 
