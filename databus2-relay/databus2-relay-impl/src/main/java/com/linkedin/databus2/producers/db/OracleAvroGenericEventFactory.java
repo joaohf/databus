@@ -315,6 +315,12 @@ implements EventFactory
       else
       {
         String databaseFieldName = SchemaHelper.getMetaField(field, "dbFieldName");
+        if (databaseFieldName == null)
+        {
+          // internal schema field, don't touch
+          continue;
+        }
+
         try
         {
           Object databaseFieldValue = rs.getObject(databaseFieldName);
