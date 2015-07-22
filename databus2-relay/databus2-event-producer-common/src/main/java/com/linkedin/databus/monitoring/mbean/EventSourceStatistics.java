@@ -36,6 +36,7 @@ implements EventSourceStatisticsMBean
   private long _lastCycleWithEventsTimestamp;
   private long _maxScn;
   private long _maxDBScn;
+  private long _maxWindowId;
   private long _numErrors;
   private long _timestampLastDBAccess;
 
@@ -60,6 +61,7 @@ implements EventSourceStatisticsMBean
 	  _numCyclesWithEvents = 0;
 	  _numCyclesWithoutEvents = 0;
 	  _lastCycleWithEventsTimestamp = 0;
+      _maxWindowId = 0;
 }
 
 public synchronized void addEmptyEventCycle()
@@ -88,6 +90,12 @@ public synchronized void addEmptyEventCycle()
     {
       addEmptyEventCycle();
     }
+  }
+
+  public synchronized void addEventCycle(int numEvents, long eventFactoryTimeMillis, long eventSerializedSize, long maxScn, long windowId)
+  {
+    this.addEventCycle(numEvents, eventFactoryTimeMillis, eventSerializedSize, maxScn);
+    _maxWindowId= windowId;
   }
 
   public synchronized void addError()
@@ -247,5 +255,10 @@ public synchronized void addEmptyEventCycle()
   public synchronized long getTimeSinceLastDBAccess()
   {
     return System.currentTimeMillis() - _timestampLastDBAccess;
+  }
+
+  public synchronized long getMaxWindowId()
+  {
+    return _maxWindowId;
   }
 }

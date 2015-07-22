@@ -61,13 +61,6 @@ public class OracleJournalEventReader
     private final boolean _enableTracing;
 
     private final Map<Short, String> _eventQueriesBySource;
-//    private final Map<Short, String> _eventChunkedScnQueriesBySource;
-//    private final Map<Short, String> _eventChunkedTxnQueriesBySource;
-
-    static private final String NR_OGG_SRC_TRNS_CSN = "NR_OGG_SRC_TRNS_CSN";
-    static private final String TS_OGG_SRC_TRNS_COMMIT = "TS_OGG_SRC_TRNS_COMMIT";
-
-//    private PreparedStatement _txnChunkJumpScnStmt;
 
     /**
      * Logger for error and debug messages.
@@ -79,7 +72,7 @@ public class OracleJournalEventReader
     private final DbusEventsStatisticsCollector _relayInboundStatsCollector;
     private final MaxSCNWriter _maxScnWriter;
     private long _lastquerytime;
-//    private long _lastMaxScnTime;
+
     private final long _slowQuerySourceThreshold;
 
     private final ChunkingType _chunkingType;
@@ -149,19 +142,6 @@ public class OracleJournalEventReader
             _eventQueriesBySource.put(sourceInfo.getSourceId(), eventQuery);
         }
 
-//        _eventChunkedTxnQueriesBySource = new HashMap<Short, String>();
-//        for (OracleTriggerMonitoredSourceInfo sourceInfo : sources) {
-//            String eventQuery = generateTxnChunkedQuery(sourceInfo, _selectSchema);
-//            _log.info("Generated Chunked Txn events query. source: " + sourceInfo + " ; chunkTxnEventQuery: " + eventQuery);
-//            _eventChunkedTxnQueriesBySource.put(sourceInfo.getSourceId(), eventQuery);
-//        }
-
-//        _eventChunkedScnQueriesBySource = new HashMap<Short, String>();
-//        for (OracleTriggerMonitoredSourceInfo sourceInfo : sources) {
-//            String eventQuery = generateScnChunkedQuery(sourceInfo);
-//            _log.info("Generated Chunked Scn events query. source: " + sourceInfo + " ; chunkScnEventQuery: " + eventQuery);
-//            _eventChunkedScnQueriesBySource.put(sourceInfo.getSourceId(), eventQuery);
-//        }
     }
 
     @Override
@@ -170,6 +150,7 @@ public class OracleJournalEventReader
         boolean eventBufferNeedsRollback = true;
         boolean debugEnabled = _log.isDebugEnabled();
         List<EventReaderSummary> summaries = new ArrayList<EventReaderSummary>();
+
         try {
 
             long cycleStartTS = System.currentTimeMillis();
@@ -191,16 +172,17 @@ public class OracleJournalEventReader
                 }
             }
 
-            //_inChunkingMode = false;
 
             // Get events for each source
             List<OracleTriggerMonitoredSourceInfo> filteredSources = filterSources(sinceSCN);
 
             long endOfPeriodScn = EventReaderSummary.NO_EVENTS_SCN;
+            long sinceWindowId = 0;
             for (OracleTriggerMonitoredSourceInfo source : _sources) {
                 if (filteredSources.contains(source)) {
                     long startTS = System.currentTimeMillis();
-                    EventReaderSummary summary = readEventsFromOneSource(_eventSelectConnection, source, sinceSCN);
+                    sinceWindowId = source.getStatisticsBean().getMaxWindowId();
+                    EventReaderSummary summary = readEventsFromOneSource(_eventSelectConnection, source, sinceWindowId);
                     summaries.add(summary);
                     endOfPeriodScn = Math.max(endOfPeriodScn, summary.getEndOfPeriodSCN());
                     long endTS = System.currentTimeMillis();
@@ -214,7 +196,7 @@ public class OracleJournalEventReader
                     if (summary.getNumberOfEvents() > 0) {
                         source.getStatisticsBean().addEventCycle(summary.getNumberOfEvents(), endTS - startTS,
                                 summary.getSizeOfSerializedEvents(),
-                                summary.getEndOfPeriodSCN());
+                                summary.getEndOfPeriodSCN(), summary.getEndOfPeriodWindowId());
                     } else {
                         source.getStatisticsBean().addEmptyEventCycle();
                     }
@@ -322,7 +304,7 @@ public class OracleJournalEventReader
 
     private PreparedStatement createQueryStatement(Connection conn,
                                                    OracleTriggerMonitoredSourceInfo source,
-                                                   long sinceScn,
+                                                   long sinceWindowId,
                                                    int currentFetchSize)
             throws SQLException {
         boolean debugEnabled = _log.isDebugEnabled();
@@ -331,29 +313,31 @@ public class OracleJournalEventReader
         eventQuery = _eventQueriesBySource.get(source.getSourceId());
 
         if (debugEnabled)
-            _log.debug("source[" + source.getEventView() + "]: " + eventQuery + "; sinceScn=" + sinceScn);
+            _log.debug("source[" + source.getEventView() + "]: " + eventQuery + "; sinceWindowId=" + sinceWindowId);
 
         PreparedStatement pStmt = conn.prepareStatement(eventQuery);
 
         pStmt.setFetchSize(currentFetchSize);
-        //pStmt.setLong(1, sinceScn);
+
+        pStmt.setLong(1, sinceWindowId);
 
         return pStmt;
     }
 
-    private EventReaderSummary readEventsFromOneSource(Connection con, OracleTriggerMonitoredSourceInfo source, long sinceScn)
+    private EventReaderSummary readEventsFromOneSource(Connection con, OracleTriggerMonitoredSourceInfo source, long sinceWindowId)
             throws SQLException, UnsupportedKeyException, EventCreationException {
 
         PreparedStatement pstmt = null;
         ResultSet rs = null;
         long endOfPeriodSCN = EventReaderSummary.NO_EVENTS_SCN;
+        long endOfPeriodWindowId = EventReaderSummary.NO_EVENTS_WINDOW_ID;
 
         int currentFetchSize = DEFAULT_STMT_FETCH_SIZE;
         int numRowsFetched = 0;
         try {
             long startTS = System.currentTimeMillis();
             long totalEventSerializeTime = 0;
-            pstmt = createQueryStatement(con, source, sinceScn, currentFetchSize);
+            pstmt = createQueryStatement(con, source, sinceWindowId, currentFetchSize);
 
             long t = System.currentTimeMillis();
             rs = pstmt.executeQuery();
@@ -362,8 +346,9 @@ public class OracleJournalEventReader
             long tsWindowStart = Long.MAX_VALUE;
             long tsWindowEnd = Long.MIN_VALUE;
             while (rs.next()) {
-                long scn = rs.getLong(1);
-                long timestamp = rs.getTimestamp(2).getTime();
+                long windowid = rs.getLong(1);
+                long scn = rs.getLong(2);
+                long timestamp = rs.getTimestamp(3).getTime();
                 tsWindowEnd = Math.max(timestamp, tsWindowEnd);
                 tsWindowStart = Math.min(timestamp, tsWindowStart);
 
@@ -379,6 +364,7 @@ public class OracleJournalEventReader
                 totalEventSerializeTime += System.currentTimeMillis() - tsStart;
                 totalEventSize += eventSize;
                 endOfPeriodSCN = Math.max(endOfPeriodSCN, scn);
+                endOfPeriodWindowId = Math.max(endOfPeriodWindowId, windowid);
 
                 // Count the row
                 numRowsFetched++;
@@ -395,7 +381,8 @@ public class OracleJournalEventReader
             // Build the event summary and return
             EventReaderSummary summary = new EventReaderSummary(source.getSourceId(), source.getSourceName(),
                     endOfPeriodSCN, numRowsFetched,
-                    totalEventSize, (endTS - startTS), totalEventSerializeTime, tsWindowStart, tsWindowEnd, queryExecTime);
+                    totalEventSize, (endTS - startTS), totalEventSerializeTime, tsWindowStart, tsWindowEnd, queryExecTime,
+                    endOfPeriodWindowId);
             return summary;
         } finally {
             DBHelper.close(rs, pstmt, null);
@@ -440,6 +427,7 @@ public class OracleJournalEventReader
 
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT ");
+        sql.append("j.window_id as window_id, ");
         sql.append("src.NR_OGG_SRC_TRNS_CSN as scn, ");
         sql.append("src.TS_OGG_SRC_TRNS_COMMIT as event_timestamp, ");
         sql.append("src.* ");
@@ -448,8 +436,9 @@ public class OracleJournalEventReader
         sql.append(sourceInfo.getJournalTable() + " j ");
         sql.append("WHERE ");
         if (pks.length() > 0) {
-            sql.append(pks.toString());
+            sql.append(pks.toString() + " and ");
         }
+        sql.append("j.window_id > ? ");
         //sql.append("( src.NR_OGG_SRC_TRNS_CSN = 0 or src.NR_OGG_SRC_TRNS_CSN > ? ) ");
         sql.append("ORDER BY event_timestamp");
 

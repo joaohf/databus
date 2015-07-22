@@ -25,11 +25,13 @@ import java.util.Formatter;
 public class EventReaderSummary
 {
   public static final long NO_EVENTS_SCN = -1;
+  public static final long NO_EVENTS_WINDOW_ID = -1;
   public static final String EVENT_LOG_FORMAT = "src:%s(%d) #src:%d #evt:%d scn:%d ms:%d sizeInBytes:%d msEvent:%d msTimeElapsed:%d msQueryExec:%d prodRate:%.2f consRate:%.2f";
 
   private final short _sourceId;
   private final String _sourceName;
   private final long _endOfPeriodSCN;
+  private final long _endOfPeriodWindowId;
   private final int _numberOfEvents;
   /** size of serialized payload, does not include meta data inserted by databus */
   private final long _sizeOfSerializedEvents;
@@ -59,6 +61,10 @@ public class EventReaderSummary
   public long getEndOfPeriodSCN()
   {
     return _endOfPeriodSCN;
+  }
+  public long getEndOfPeriodWindowId()
+  {
+    return _endOfPeriodWindowId;
   }
   public int getNumberOfEvents()
   {
@@ -116,6 +122,32 @@ public class EventReaderSummary
     _timeProdStart = timeProdStart;
     _timeProdEnd = timeProdEnd;
     _queryExecTime = queryExecTime;
+    _endOfPeriodWindowId = 0;
+  }
+
+  public EventReaderSummary(short sourceId,
+                            String sourceName,
+                            long endOfPeriodSCN,
+                            int numberOfEvents,
+                            long sizeOfSerializedEvents,
+                            long readMillis,
+                            long msEvent,
+                            long timeProdStart,
+                            long timeProdEnd,
+                            long queryExecTime,
+                            long endOfPeriodWindowId)
+  {
+    _sourceId = sourceId;
+    _sourceName = sourceName;
+    _endOfPeriodSCN = endOfPeriodSCN;
+    _numberOfEvents = numberOfEvents;
+    _sizeOfSerializedEvents = sizeOfSerializedEvents;
+    _readMillis = readMillis;
+    _msEvent = msEvent;
+    _timeProdStart = timeProdStart;
+    _timeProdEnd = timeProdEnd;
+    _queryExecTime = queryExecTime;
+    _endOfPeriodWindowId = endOfPeriodWindowId;
   }
 
 
