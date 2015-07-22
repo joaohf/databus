@@ -89,14 +89,23 @@ public class DataGenerator {
   }
 
 
-  static public void prettyPrint(GenericRecord record)
+  static public String toJsonString(GenericRecord record)
   {
+    String json = null;
+
     try {
-      LOG.info(new JSONObject(record.toString()).toString(2));
+      json = new JSONObject(record.toString()).toString(2);
     } catch (JSONException e) {
       LOG.error("Unable to parser json: The Json created by the generator is not valid!");
       e.printStackTrace();
     }
+
+    return json;
+  }
+
+  static public void prettyPrint(GenericRecord record)
+  {
+      LOG.info(DataGenerator.toJsonString(record));
   }
 
   public static Options loadOptions() {
