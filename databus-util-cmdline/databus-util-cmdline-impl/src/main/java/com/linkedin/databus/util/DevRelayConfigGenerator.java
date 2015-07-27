@@ -229,22 +229,31 @@ public class DevRelayConfigGenerator
 
   /**
    * @param args
-   * @throws Exception
    */
-  public static void main(String[] args) throws Exception
+  public static void main(String[] args)
   {
     Cli cli = new Cli();
-    if (! cli.processCommandLineArgs(args))
+
+    try {
+      if (! cli.processCommandLineArgs(args))
+      {
+        return;
+      }
+
+      generateRelayConfig(cli.getSchemaRegistryLocation(),
+              cli.getSchemaName(),
+              cli.getDbUri(),
+              cli.getOutputDirectory(),
+              cli.getSrcNames(),
+              new SchemaMetaDataManager(cli.getSchemaRegistryLocation()));
+    }
+    catch (Exception e)
     {
-      return;
+      System.err.println("Error running generate relay config");
+      e.printStackTrace();
+      System.exit(1);
     }
 
-    generateRelayConfig(cli.getSchemaRegistryLocation(),
-                        cli.getSchemaName(),
-                        cli.getDbUri(),
-                        cli.getOutputDirectory(),
-                        cli.getSrcNames(),
-                        new SchemaMetaDataManager(cli.getSchemaRegistryLocation()));
     System.out.println("DONE !!");
   }
 
