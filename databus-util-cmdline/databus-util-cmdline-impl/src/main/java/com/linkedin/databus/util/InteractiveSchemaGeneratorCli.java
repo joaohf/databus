@@ -44,6 +44,7 @@ import com.linkedin.databus.core.BaseCli;
  * -S,--schema_reg_path <path>      path where to checkout the schema registry
  * -t,--table <table_name>          name of the table/view whose schema to generate
  * -u,--username <user>             DB username
+ * -n, --namespace <namespace>      Namespace prefix
  * -v                               verbose
  * -vv                              more verbose
  * -vvv                             most verbose
@@ -62,6 +63,7 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
   private static char USER_OPT_CHAR = 'u';
   private static char SCHEMA_REGISTRY_PATH_OPT_CHAR = 'S';
   private static char NUMBEROVERRIDE_OPT_CHAR = 'N';
+  private static char NAMESPACE_OPT_CHAR = 'n';
 
 
   private static String AUTOMATIC_OPT_NAME = "automatic";
@@ -75,6 +77,7 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
   private static String USER_OPT_NAME = "username";
   private static String SCHEMA_REGISTRY_PATH_OPT_NAME = "schema_reg_path";
   private static String NUMBEROVERRIDE_OPT_NAME = "number_override_map";
+  private static String NAMESPACE_OPT_NAME = "namespace";
 
   private boolean _automatic = Boolean.FALSE;
   private boolean _checkoutSchemaRegistryLocation = Boolean.FALSE;
@@ -86,7 +89,8 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
   private String _schemaRegPath = InteractiveSchemaGenerator.DEFAULT_SCHEMA_REGISTRY_LOCATION;
   private String _table;
   private String _user;
-  private HashMap<String,String> _dbFieldToAvroDataType;
+  private HashMap<String,String> _dbFieldToAvroDataType = null;
+  private String _namespace = InteractiveSchemaGenerator.NAMESPACE_PREFIX;
 
   public InteractiveSchemaGeneratorCli()
   {
@@ -163,6 +167,13 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
             .withDescription("Override number fields datatype with FLOAT, LONG, INTEGER, DOUBLE. Input as, DB_FIELD_NAME1=FLOAT,DB_FIELD_NAME2=DOUBLE")
             .create(NUMBEROVERRIDE_OPT_CHAR);
 
+    Option namespaceOption =
+        OptionBuilder.withLongOpt(NAMESPACE_OPT_NAME)
+            .hasArg()
+            .withArgName("namespace")
+            .withDescription("The name of namespace prefix")
+            .create(NAMESPACE_OPT_CHAR);
+
     _cliOptions.addOption(automaticOption);
     _cliOptions.addOption(checkoutSchemaRegistryOption);
     _cliOptions.addOption(dbnameOption);
@@ -174,6 +185,7 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
     _cliOptions.addOption(userOption);
     _cliOptions.addOption(schemaRegPathOption);
     _cliOptions.addOption(numberOverrideOption);
+    _cliOptions.addOption(namespaceOption);
   }
 
   @Override
@@ -218,7 +230,7 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
     }
     else
     {
-      _primaryKeys = Collections.unmodifiableList(Arrays.asList(""));
+      _primaryKeys = Collections.unmodifiableList(Arrays.asList(new String[0]));
     }
 
     if (_cmd.hasOption(TABLE_OPT_CHAR))
@@ -246,6 +258,11 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
         String[] dbFieldToDatatype = mapElement.split("=");
         _dbFieldToAvroDataType.put(dbFieldToDatatype[0].trim(), dbFieldToDatatype[1].trim());
       }
+    }
+
+    if (_cmd.hasOption(NAMESPACE_OPT_CHAR))
+    {
+      _namespace = _cmd.getOptionValue(NAMESPACE_OPT_CHAR).trim();
     }
 
     return true;
@@ -281,6 +298,7 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
     {
       System.out.println("Error running the schema generation tool");
       e.printStackTrace();
+      System.exit(1);
     }
   }
 
@@ -344,7 +362,13 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
     return _fields;
   }
 
-  @Override
+  /** The namespace prefix name*/
+  public String getNamespace()
+    {
+        return _namespace;
+    }
+
+    @Override
   public String toString()
   {
     return "InteractiveSchemaGeneratorCli{" +
@@ -359,6 +383,7 @@ public class InteractiveSchemaGeneratorCli extends BaseCli
         ", _table='" + _table + '\'' +
         ", _user='" + _user + '\'' +
         ", _dbFieldToAvroDataType=" + _dbFieldToAvroDataType +
+        ", _namespace=" + _namespace +
         '}';
   }
 

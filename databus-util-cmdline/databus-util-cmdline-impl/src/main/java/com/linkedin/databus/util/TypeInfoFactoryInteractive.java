@@ -286,6 +286,10 @@ public class TypeInfoFactoryInteractive
       throws IOException
   {
     String line;
+
+    if (reader == null)
+      return "yes";
+
     if((line = reader.readLine()) == null)
     {
       System.out.println("Please enter a valid input");

@@ -79,7 +79,7 @@ public class InteractiveSchemaGenerator
   //path to svn
   private static final String PATH_TO_SVN = "/export/apps/xtools/bin/svn";
   //Namespace prefix to the schemas
-  private static final String NAMESPACE_PREFIX = "com.linkedin.events";
+  protected static final String NAMESPACE_PREFIX = "com.linkedin.events";
   //Suffix for databus-events avro specific schema
   private static final String DATABUS_EVENTS_SUFFIX = "/databus-events/src/main/java/";
   //Suffix for databus-events generic records
@@ -143,6 +143,8 @@ public class InteractiveSchemaGenerator
   boolean _automatic;
   //Is to checkout using Version Control System
   boolean _checkoutSchemaRegistryLocation = false;
+  //Namespace prefix
+  String _namespace = NAMESPACE_PREFIX;
 
   public SchemaMetaDataManager _manager = null;
 
@@ -169,6 +171,7 @@ public class InteractiveSchemaGenerator
         ", _primaryKeys=" + _primaryKeys +
         ", _userFields=" + _userFields +
         ", _dbFieldToAvroDataType=" + _dbFieldToAvroDataType +
+        ", _namespace=" + _namespace +
         ", _automatic=" + _automatic +
         ", _manager=" + _manager +
         ", currentState=" + currentState +
@@ -193,6 +196,7 @@ public class InteractiveSchemaGenerator
     _conn =  getConnection();
     _automatic = cli.isAutomatic();
     _checkoutSchemaRegistryLocation = cli.isCheckoutSchemaRegistryLocation();
+    _namespace = cli.getNamespace();
     File tempFile = new File(_schemaRegistryLocation);
     if(!tempFile.exists())
     {
@@ -905,8 +909,17 @@ public class InteractiveSchemaGenerator
       System.out.println("\n\t b) When table/View schema changed and the latest databus schema does not reflect the table/view schema changes.");
       System.out.println("\n\n For Schema Generation needed for Mult-Colo, please look at https://iwww.corp.linkedin.com/wiki/cf/display/ENGS/Databus+GoldenGate+Client+Launches to verify if the table/View is already databusified.");
       System.out.println("\n\n If the schema already exists, you can look at " + _schemaRegistryLocation + "/schemas_registry to verify if the latest version of schema matches with the table/view  schema you expected.");
-      if ( promptForYesOrNoQuestion("Are you sure you want to generate new schema "))
-        runSchemaGenTool();
+      if ( promptForYesOrNoQuestion("Are you sure you want to generate new schema ")) {
+        try {
+          runSchemaGenTool();
+        }
+        catch (Exception e)
+        {
+          System.err.println("Error running the schema generation tool");
+          e.printStackTrace(System.err);
+          System.exit(1);
+        }
+      }
       System.out.println("\n\n");
     }
     else if(operation.equals(GEN_SCHEMA_OPTIONS[1]))
@@ -948,14 +961,19 @@ public class InteractiveSchemaGenerator
 
 
 
-  public boolean runSchemaGenTool()
-  {
+  public boolean runSchemaGenTool() throws Exception {
     //TODO Things left to do:
     // 1. Determine if we need to bump up the version of schema, if yes, then throw an error and ask the user to use update schema
     // 2. Check if there is already an schema for this table
     // DONE ---- 3. Get the primary key list and confirm with user
     // DONE ---- 4. Modify the schema gen tool to generate schema with the new composite keys
     // 5. If the input type is number, verify from user the precision and scale
+
+    // Get primerayKeys even if automatic was selected
+    if(_automatic && _primaryKeys.isEmpty())
+    {
+      _primaryKeys = getPrimaryKeys();
+    }
 
     if(_automatic)
       System.out.println("\n\n Starting the schema generation with the following settings: " + toString());
@@ -975,7 +993,7 @@ public class InteractiveSchemaGenerator
     try{
       TableTypeInfo ti = (TableTypeInfo) new TypeInfoFactoryInteractive().getTypeInfo(_conn, _schemaName, _tableName, 0, 0, pKeyList.toString(), _reader, _dbFieldToAvroDataType);
 
-      String namespace = NAMESPACE_PREFIX + "." + _schemaName.toLowerCase(Locale.ENGLISH);
+      String namespace = _namespace + "." + _schemaName.toLowerCase(Locale.ENGLISH);
 
       if(!_automatic)
       {
@@ -990,6 +1008,7 @@ public class InteractiveSchemaGenerator
       }
       else
       {
+        namespace = _namespace;
         System.out.println("Using the default namespace [" + namespace +"]");
       }
 
@@ -1104,7 +1123,7 @@ public class InteractiveSchemaGenerator
     catch(Exception e)
     {
       System.out.println("Exception while generating schema: " + e.toString());
-      return false;
+      throw e;
     }
 
     System.out.println("Schema generated at " + _schemaRegistryLocation + ". Please submit a review request (using svin) to the Databus team.");
@@ -1159,9 +1178,12 @@ public class InteractiveSchemaGenerator
         dbFieldName = SchemaHelper.getMetaField(field, "dbFieldName");
 
       if(dbFieldName == null)
-        throw new DatabusException("Unable to determine the dbFieldName from the meta information");
+      {
+        String field_name = field.name();
+        System.out.println("Unable to determine the dbFieldName from the meta information from field name:" + field_name);
+      }
 
-      if(!_userFields.contains(dbFieldName.toUpperCase(Locale.ENGLISH)))
+      if((_userFields != null) && !_userFields.contains(dbFieldName.toUpperCase(Locale.ENGLISH)))
         list.remove(i);
       else
         i++;
