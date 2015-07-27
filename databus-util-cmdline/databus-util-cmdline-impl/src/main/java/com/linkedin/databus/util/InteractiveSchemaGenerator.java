@@ -984,8 +984,7 @@ public class InteractiveSchemaGenerator
     StringBuilder pKeyList = new StringBuilder();
     for(int i=0 ;i <_primaryKeys.size() ; i++)
     {
-      String avroName = SchemaUtils.toCamelCase(_primaryKeys.get(i));
-      pKeyList.append(avroName);
+      pKeyList.append(_primaryKeys.get(i));
       if(i != _primaryKeys.size() - 1)
         pKeyList.append(",");
     }
