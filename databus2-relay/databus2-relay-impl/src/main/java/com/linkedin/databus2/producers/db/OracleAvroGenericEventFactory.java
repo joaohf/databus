@@ -58,6 +58,7 @@ import com.linkedin.databus2.relay.OracleJarUtils;
 import com.linkedin.databus2.relay.config.ReplicationBitSetterStaticConfig;
 import com.linkedin.databus2.relay.config.ReplicationBitSetterStaticConfig.SourceType;
 import com.linkedin.databus2.schemas.utils.SchemaHelper;
+import com.linkedin.databus2.schemas.utils.SchemaUtils;
 
 /**
  * Reusable EventFactory which can generate Avro serialized records based on an Avro schema file
@@ -123,11 +124,17 @@ implements EventFactory
 
     String keyNames = SchemaHelper.getMetaField(_eventSchema, "pk");
 
-    _pKeySchema = new PrimaryKeySchema(keyNames);
+    try {
+      _pKeySchema = new PrimaryKeySchema(keyNames);
+    } catch (DatabusException e) {
+      throw new DatabusException("Schema " + _eventSchema.getFullName() + " with invalid pk");
+    }
 
     // get the first primary key
-    keyColumnName = _pKeySchema.getPKeyList().get(0);;
+    keyColumnName = _pKeySchema.getPKeyList().get(0);
     _log.info(_eventSchema.getFullName() + ": using primary key override:" + keyColumnName);
+
+    keyColumnName = SchemaUtils.toCamelCase(keyColumnName);
 
     // Examine the event schema to determine the proper type of "key". The key must be a
     // String, int, or long data type.
