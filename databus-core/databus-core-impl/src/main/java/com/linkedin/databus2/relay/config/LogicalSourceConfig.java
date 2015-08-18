@@ -21,7 +21,7 @@ public class LogicalSourceConfig implements ConfigBuilder<LogicalSourceStaticCon
   private short _id = -1;
   private String _name;
   private String _uri;
-  private String _producerType;
+  private String _uri_journal;
   private String _partitionFunction;
   private short _partition;
   private boolean _skipInfinityScn = false;
@@ -89,16 +89,16 @@ public class LogicalSourceConfig implements ConfigBuilder<LogicalSourceStaticCon
   {
     _uri = uri;
   }
-  public String getProducerType()
-  {
-      return _producerType;
-  }
-  public void setProducerType(String producerType)
-  {
-      _producerType = producerType;
-  }
+  public String getUriJournal()
+    {
+        return _uri_journal;
+    }
+  public void setUriJournal(String uri_journal)
+    {
+        _uri_journal = uri_journal;
+    }
 
- public void setPartition(short partition)
+  public void setPartition(short partition)
   {
     _partition = partition;
   }
@@ -131,7 +131,8 @@ public class LogicalSourceConfig implements ConfigBuilder<LogicalSourceStaticCon
   {
     checkForNulls();
     return new LogicalSourceStaticConfig(_id, _name, _uri, _partitionFunction, _partition,
-                                         _skipInfinityScn, _regularQueryHints, _chunkedTxnQueryHints, _chunkedScnQueryHints);
+                                         _skipInfinityScn, _regularQueryHints, _chunkedTxnQueryHints, _chunkedScnQueryHints,
+                                         _uri_journal);
   }
 
   public boolean isSkipInfinityScn()

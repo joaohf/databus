@@ -8,6 +8,7 @@ public class LogicalSourceStaticConfig
   private final short _id;
   private final String _name;
   private final String _uri;
+  private final String _uriJournal;
   private final String _partitionFunction;
   //private final short _pid;
   private final LogicalSource _source;
@@ -49,6 +50,32 @@ public class LogicalSourceStaticConfig
     _regularQueryHints = regularQueryHints;
     _chunkedTxnQueryHints = chunkedTxnQueryHints;
     _chunkedScnQueryHints = chunkedScnQueryHints;
+    _uriJournal = null;
+  }
+
+  public LogicalSourceStaticConfig(short id,
+                                   String name,
+                                   String uri,
+                                   String partitionFunction,
+                                   short partition,
+                                   boolean skipInfinityScn,
+                                   String regularQueryHints,
+                                   String chunkedTxnQueryHints,
+                                   String chunkedScnQueryHints,
+                                   String uriJournal)
+  {
+    super();
+    _id = id;
+    _name = name;
+    _uri = uri;
+    _partitionFunction = partitionFunction;
+    _source = new LogicalSource(Integer.valueOf(_id), _name);  // SHOULD be name or uri?
+    _partition = new LogicalPartition(partition);
+    _skipInfinityScn = skipInfinityScn;
+    _regularQueryHints = regularQueryHints;
+    _chunkedTxnQueryHints = chunkedTxnQueryHints;
+    _chunkedScnQueryHints = chunkedScnQueryHints;
+    _uriJournal = uriJournal;
   }
 
   /** Globally unique source id */
@@ -72,6 +99,9 @@ public class LogicalSourceStaticConfig
   {
     return _uri;
   }
+
+  /** DB connection URI (journal table name) */
+  public String getJournalUri() { return _uriJournal; }
 
   /** Partitioning function spec */
   public String getPartitionFunction()

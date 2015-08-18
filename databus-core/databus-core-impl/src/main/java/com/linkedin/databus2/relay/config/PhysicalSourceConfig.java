@@ -171,7 +171,7 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
       // these two shouldn't ever be used
       source.setPartitionFunction("DefaultPartition");
       source.setUri("defaultUri");
-      source.setProducerType("defaultProducerType");
+      source.setUriJournal("defaultUriJournal");
       newSources.add(source);
     }
     setSources(newSources);
@@ -198,7 +198,7 @@ public class PhysicalSourceConfig implements ConfigBuilder<PhysicalSourceStaticC
       // these two shouldn't ever be used
       source.setPartitionFunction("DefaultPartition");
       source.setUri("defaultUri");
-      source.setProducerType("defaultProducerType");
+      source.setUriJournal("defaultUriJournal");
       newSources.add(source);
     }
     res.setSources(newSources);

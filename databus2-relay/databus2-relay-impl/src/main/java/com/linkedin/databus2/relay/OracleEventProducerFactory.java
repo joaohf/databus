@@ -179,6 +179,7 @@ public class OracleEventProducerFactory
     String journalSchemaTemplate;
     String eventViewSchema;
     String eventView;
+    String journalTable = sourceConfig.getJournalUri();
 
     journalSchemaTemplate = pConfig.getJournalSchemaTemplate();
 
@@ -207,8 +208,9 @@ public class OracleEventProducerFactory
 
     OracleTriggerMonitoredSourceInfo sourceInfo = new OracleTriggerMonitoredSourceInfo(sourceConfig.getId(),
                                                              sourceConfig.getName(),
-                                                             eventViewSchema,
-                                                             eventView, journalSchemaTemplate, factory,
+                                                             eventViewSchema, eventView,
+                                                             journalSchemaTemplate, journalTable,
+                                                             factory,
                                                              statisticsBean,
                                                              sourceConfig.getRegularQueryHints(),
                                                              sourceConfig.getChunkedTxnQueryHints(),

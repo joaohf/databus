@@ -36,6 +36,7 @@ public class OracleTriggerMonitoredSourceInfo implements EventSourceStatisticsIf
   private final String _eventView;
   private final String _eventSchema;
   private final String _journalSchemaTemplate;
+  private final String _journalTable;
   private final EventSourceStatistics _statisticsBean;
   private final boolean _skipInfinityScn;
 
@@ -78,7 +79,10 @@ public class OracleTriggerMonitoredSourceInfo implements EventSourceStatisticsIf
   }
 
   public String getJournalTable() {
-    return _journalSchemaTemplate + _eventView;
+    if (_journalTable == null)
+      return _journalSchemaTemplate + _eventView;
+
+    return _journalTable;
   }
 
   @Override
@@ -96,13 +100,16 @@ public class OracleTriggerMonitoredSourceInfo implements EventSourceStatisticsIf
 	return _eventScnChunkedQueryHints;
   }
 
-  public OracleTriggerMonitoredSourceInfo(short sourceId, String sourceName, String eventSchema, String eventView, String journalSchemaTemplate,
-          EventFactory factory, EventSourceStatistics statisticsBean,
-          String eventQueryHints, String eventTxnChunkedQueryHints, String eventScnChunkedQueryHints, boolean skipInfinityScn)
+  public OracleTriggerMonitoredSourceInfo(short sourceId, String sourceName, String eventSchema, String eventView,
+                                          String journalSchemaTemplate, String journalTable,
+                                          EventFactory factory, EventSourceStatistics statisticsBean,
+                                          String eventQueryHints, String eventTxnChunkedQueryHints, String eventScnChunkedQueryHints,
+                                          boolean skipInfinityScn)
   {
 	    _eventView = eventView;
 	    _eventSchema = eventSchema;
         _journalSchemaTemplate = journalSchemaTemplate;
+        _journalTable = journalTable;
 	    _sourceId = sourceId;
 	    _factory = factory;
 	    _sourceName = sourceName;
@@ -124,7 +131,7 @@ public class OracleTriggerMonitoredSourceInfo implements EventSourceStatisticsIf
                              EventFactory factory, EventSourceStatistics statisticsBean,
                              boolean skipInfinityScn)
   {
-    this(sourceId, sourceName, eventSchema, eventView, journalSchemaTemplate, factory, statisticsBean,  null, null, null,
+    this(sourceId, sourceName, eventSchema, eventView, journalSchemaTemplate, null, factory, statisticsBean,  null, null, null,
          skipInfinityScn);
   }
 
